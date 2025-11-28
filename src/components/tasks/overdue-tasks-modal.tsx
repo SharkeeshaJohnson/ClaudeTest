@@ -2,24 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, CheckCircle, Video, ExternalLink } from "lucide-react";
+import { AlertTriangle, CheckCircle, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAccountStore } from "@/store/account-store";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
-
-interface Task {
-  id: string;
-  title: string;
-  description: string | null;
-  type: string;
-  status: string;
-  dueDate: string | null;
-  videoId: string | null;
-}
+import { taskService, videoMetricService, streakService, videoService } from "@/lib/db/services";
+import type { Task } from "@/lib/db";
 
 interface OverdueTasksModalProps {
   onAllCompleted?: () => void;
@@ -39,35 +30,29 @@ export function OverdueTasksModal({ onAllCompleted }: OverdueTasksModalProps) {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isAiJourney = selectedAccount?.type === "ai_journey";
-
   const fetchOverdueTasks = useCallback(async () => {
     if (!selectedAccountId) return;
 
     try {
       // First, generate any new tasks
-      await fetch("/api/tasks/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId: selectedAccountId }),
-      });
+      await taskService.generateMetricsUpdateTasks(selectedAccountId);
 
       // Then fetch all pending tasks
-      const res = await fetch(
-        `/api/tasks?accountId=${selectedAccountId}&status=pending`
-      );
-      if (res.ok) {
-        const tasks: Task[] = await res.json();
-        // Filter to only metrics_update tasks that are overdue
-        const now = new Date();
-        const overdue = tasks.filter((task) => {
-          if (task.type !== "metrics_update") return false;
-          if (!task.dueDate) return false;
-          return new Date(task.dueDate) < now;
-        });
-        setOverdueTasks(overdue);
-        setIsVisible(overdue.length > 0);
-      }
+      const tasks = await taskService.getAll({
+        accountId: selectedAccountId,
+        status: "pending",
+      });
+
+      // Filter to only metrics_update tasks that are overdue
+      const now = Date.now();
+      const overdue = tasks.filter((task) => {
+        if (task.type !== "metrics_update") return false;
+        if (!task.dueDate) return false;
+        return task.dueDate < now;
+      });
+
+      setOverdueTasks(overdue);
+      setIsVisible(overdue.length > 0);
     } catch (error) {
       console.error("Failed to fetch overdue tasks:", error);
     }
@@ -80,7 +65,7 @@ export function OverdueTasksModal({ onAllCompleted }: OverdueTasksModalProps) {
   const currentTask = overdueTasks[currentTaskIndex];
 
   const handleSubmitMetrics = async () => {
-    if (!currentTask?.videoId) return;
+    if (!currentTask?.videoId || !selectedAccountId) return;
 
     const views = parseInt(metrics.views);
     const likes = parseInt(metrics.likes);
@@ -95,36 +80,25 @@ export function OverdueTasksModal({ onAllCompleted }: OverdueTasksModalProps) {
     setIsSubmitting(true);
 
     try {
+      // Get the video to determine platform
+      const video = await videoService.getById(currentTask.videoId);
+      const platform = selectedAccount?.platforms?.[0] === "tiktok" ? "tiktok" : "instagram";
+
       // Save metrics
-      const metricsRes = await fetch(
-        `/api/videos/${currentTask.videoId}/metrics`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ views, likes, comments, shares }),
-        }
-      );
-
-      if (!metricsRes.ok) throw new Error("Failed to save metrics");
-
-      // Mark task as completed
-      await fetch(`/api/tasks/${currentTask.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "completed",
-          completedAt: new Date().toISOString(),
-        }),
+      await videoMetricService.create({
+        videoId: currentTask.videoId,
+        platform,
+        views,
+        likes,
+        comments,
+        shares,
       });
 
+      // Mark task as completed
+      await taskService.complete(currentTask.id);
+
       // Award XP for updating metrics
-      if (selectedAccountId) {
-        await fetch(`/api/streaks/${selectedAccountId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "metrics" }),
-        });
-      }
+      await streakService.recordActivity(selectedAccountId, "metrics");
 
       toast.success("Metrics updated successfully!");
 
@@ -137,6 +111,7 @@ export function OverdueTasksModal({ onAllCompleted }: OverdueTasksModalProps) {
         onAllCompleted?.();
       }
     } catch (error) {
+      console.error("Failed to update metrics:", error);
       toast.error("Failed to update metrics");
     } finally {
       setIsSubmitting(false);
@@ -148,14 +123,9 @@ export function OverdueTasksModal({ onAllCompleted }: OverdueTasksModalProps) {
 
     // Snooze the task by moving due date to tomorrow
     try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
 
-      await fetch(`/api/tasks/${currentTask.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dueDate: tomorrow.toISOString() }),
-      });
+      await taskService.update(currentTask.id, { dueDate: tomorrow });
 
       toast.info("Task snoozed until tomorrow");
 
@@ -168,6 +138,7 @@ export function OverdueTasksModal({ onAllCompleted }: OverdueTasksModalProps) {
         onAllCompleted?.();
       }
     } catch (error) {
+      console.error("Failed to snooze task:", error);
       toast.error("Failed to snooze task");
     }
   };
@@ -189,12 +160,7 @@ export function OverdueTasksModal({ onAllCompleted }: OverdueTasksModalProps) {
           className="bg-card rounded-xl shadow-2xl max-w-md w-full overflow-hidden"
         >
           {/* Header */}
-          <div
-            className={cn(
-              "p-4 text-white",
-              isAiJourney ? "bg-blue-500" : "bg-orange-500"
-            )}
-          >
+          <div className="p-4 text-white bg-primary">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
               <h2 className="font-bold">Overdue Metrics Update</h2>
@@ -214,10 +180,7 @@ export function OverdueTasksModal({ onAllCompleted }: OverdueTasksModalProps) {
             </div>
             <div className="h-1 bg-muted rounded-full overflow-hidden">
               <motion.div
-                className={cn(
-                  "h-full",
-                  isAiJourney ? "bg-blue-500" : "bg-orange-500"
-                )}
+                className="h-full bg-primary"
                 initial={{ width: 0 }}
                 animate={{
                   width: `${((currentTaskIndex + 1) / overdueTasks.length) * 100}%`,
@@ -322,12 +285,7 @@ export function OverdueTasksModal({ onAllCompleted }: OverdueTasksModalProps) {
             <Button
               onClick={handleSubmitMetrics}
               disabled={isSubmitting}
-              className={cn(
-                "flex-1",
-                isAiJourney
-                  ? "bg-blue-500 hover:bg-blue-600"
-                  : "bg-orange-500 hover:bg-orange-600"
-              )}
+              className="flex-1 bg-primary hover:bg-primary/90"
             >
               {isSubmitting ? (
                 "Saving..."

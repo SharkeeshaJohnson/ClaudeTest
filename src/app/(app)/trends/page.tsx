@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   TrendingUp,
   RefreshCw,
@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAccountStore } from "@/store/account-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useIdentityToken } from "@privy-io/react-auth";
 
 type Provider = "claude" | "gpt4" | "gemini" | "grok";
 
@@ -45,9 +46,18 @@ const providerConfig: Record<Provider, { name: string; color: string; icon: stri
   grok: { name: "Grok", color: "bg-purple-500", icon: "🔮" },
 };
 
+// Map our provider names to actual model IDs
+const providerToModel: Record<Provider, string> = {
+  claude: "anthropic/claude-3-5-sonnet-20241022",
+  gpt4: "openai/gpt-4o",
+  gemini: "google/gemini-1.5-pro",
+  grok: "openai/gpt-4o-mini", // Grok not available, use GPT-4o-mini as fallback
+};
+
 export default function TrendsPage() {
   const { selectedAccountId, accounts } = useAccountStore();
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+  const { identityToken } = useIdentityToken();
   const [results, setResults] = useState<Record<Provider, TrendResult | null>>({
     claude: null,
     gpt4: null,
@@ -69,6 +79,27 @@ export default function TrendsPage() {
 
   const isAiJourney = selectedAccount?.type === "ai_journey";
 
+  const buildTrendPrompt = () => {
+    const niche = isAiJourney ? "AI/tech content for TikTok/Reels" : "dog/pet content for TikTok/Reels";
+    return `You are a social media trend analyst. Analyze current trends for ${niche}.
+
+Return a JSON object with exactly this structure (no markdown, just raw JSON):
+{
+  "trendingTopics": ["topic1", "topic2", "topic3", "topic4", "topic5"],
+  "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5", "#hashtag6", "#hashtag7", "#hashtag8"],
+  "contentAngles": ["angle1", "angle2", "angle3", "angle4"],
+  "seasonalHooks": ["hook1", "hook2", "hook3"]
+}
+
+Focus on:
+- Current viral trends in the ${isAiJourney ? "tech/AI" : "pet"} space
+- High-performing hashtags with good reach
+- Unique content angles that stand out
+- Seasonal or timely opportunities
+
+Return ONLY the JSON, no explanations.`;
+  };
+
   const generateTrends = async (provider: Provider) => {
     if (!selectedAccountId) {
       toast.error("Please select an account first");
@@ -79,19 +110,64 @@ export default function TrendsPage() {
     setErrors((prev) => ({ ...prev, [provider]: null }));
 
     try {
-      const res = await fetch("/api/trends/generate", {
+      const model = providerToModel[provider];
+      console.log(`[Trends] Starting generation for ${provider} with model ${model}`);
+
+      if (!identityToken) {
+        throw new Error("Not authenticated");
+      }
+      const token = identityToken;
+      console.log(`[Trends] Token available:`, !!token);
+
+      const response = await fetch("https://ai-portal-dev.zetachain.com/api/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId: selectedAccountId, provider }),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: buildTrendPrompt() }],
+        }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to generate trends");
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Trends] API error for ${provider}:`, response.status, errorText);
+        throw new Error(`API error: ${response.status}`);
       }
 
-      setResults((prev) => ({ ...prev, [provider]: data }));
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || "";
+      console.log(`[Trends] Content for ${provider}:`, content?.substring(0, 100));
+
+      // Parse JSON from response (handle potential markdown wrapping)
+      let trendData: TrendData;
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          trendData = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error("No JSON found in response");
+        }
+      } catch {
+        // Fallback structure if parsing fails
+        trendData = {
+          trendingTopics: ["Unable to parse trends"],
+          hashtags: [],
+          contentAngles: [],
+          seasonalHooks: [],
+        };
+      }
+
+      const trendResult: TrendResult = {
+        id: `${provider}-${Date.now()}`,
+        provider,
+        content: trendData,
+        generatedAt: new Date().toISOString(),
+      };
+
+      setResults((prev) => ({ ...prev, [provider]: trendResult }));
       toast.success(`${providerConfig[provider].name} analysis complete`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to generate";
@@ -298,23 +374,19 @@ export default function TrendsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Trend Analysis</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-subsection text-foreground">Trend Analysis</h1>
+          <p className="text-muted-foreground mt-1">
             AI-powered insights from multiple providers
           </p>
         </div>
         <Button
           onClick={generateAll}
           disabled={Object.values(loading).some((l) => l)}
-          className={cn(
-            isAiJourney
-              ? "bg-blue-500 hover:bg-blue-600"
-              : "bg-orange-500 hover:bg-orange-600"
-          )}
+          className="bg-primary hover:bg-primary/90"
         >
           <Sparkles className="h-4 w-4 mr-2" />
           Generate All

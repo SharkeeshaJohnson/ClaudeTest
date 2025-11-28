@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard,
@@ -11,12 +11,14 @@ import {
   Lightbulb,
   BarChart3,
   Flame,
+  Settings,
   LogOut,
 } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
 import { cn } from "@/lib/utils";
 import { AccountSwitcher } from "./account-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useAccountStore } from "@/store/account-store";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -26,17 +28,31 @@ const navigation = [
   { name: "Ideas", href: "/ideas", icon: Lightbulb },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Streaks", href: "/streaks", icon: Flame },
+  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { logout, user } = usePrivy();
+  const clearAccounts = useAccountStore((state) => state.clearAccounts);
+
+  const handleLogout = async () => {
+    // Clear local state
+    clearAccounts();
+    // Logout from Privy
+    await logout();
+    // Redirect to login
+    router.push("/login");
+  };
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-border bg-sidebar">
       {/* Logo */}
       <div className="flex h-16 items-center justify-center border-b border-border px-4">
-        <h1 className="text-xl font-bold text-foreground">SMCC</h1>
+        <Link href="/" className="text-xl font-semibold tracking-tight text-primary">
+          Jemma
+        </Link>
       </div>
 
       {/* Account Switcher */}
@@ -92,7 +108,7 @@ export function Sidebar() {
                 {user.email?.address || user.wallet?.address?.slice(0, 10) + "..." || "User"}
               </p>
               <button
-                onClick={logout}
+                onClick={handleLogout}
                 className="rounded p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
                 title="Sign out"
               >
@@ -101,7 +117,7 @@ export function Sidebar() {
             </div>
           )}
           <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">SMCC v1.0</p>
+            <p className="text-xs text-muted-foreground">Jemma v1.0</p>
             <ThemeToggle />
           </div>
         </div>

@@ -11,8 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { metricsService } from "@/lib/db/services";
-import { useMemoryExtractor } from "@/lib/memory";
 
 interface MetricsInputDialogProps {
   open: boolean;
@@ -44,8 +42,6 @@ export function MetricsInputDialog({
     totalShares: "",
   });
 
-  const { extractFromMetrics } = useMemoryExtractor();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!accountId) {
@@ -55,42 +51,48 @@ export function MetricsInputDialog({
 
     setIsLoading(true);
     try {
-      const metricsData = {
+      const data: Record<string, unknown> = {
         accountId,
         platform,
         followers: parseInt(formData.followers) || 0,
-        reach: formData.reach ? parseInt(formData.reach) : undefined,
-        impressions: formData.impressions ? parseInt(formData.impressions) : undefined,
-        profileViews: formData.profileViews ? parseInt(formData.profileViews) : undefined,
-        engagementRate: formData.engagementRate ? parseFloat(formData.engagementRate) : undefined,
-        totalViews: formData.totalViews ? parseInt(formData.totalViews) : undefined,
-        totalLikes: formData.totalLikes ? parseInt(formData.totalLikes) : undefined,
-        totalComments: formData.totalComments ? parseInt(formData.totalComments) : undefined,
-        totalShares: formData.totalShares ? parseInt(formData.totalShares) : undefined,
       };
 
-      await metricsService.createAccountMetric(metricsData);
+      if (platform === "instagram") {
+        data.reach = formData.reach ? parseInt(formData.reach) : null;
+        data.impressions = formData.impressions ? parseInt(formData.impressions) : null;
+        data.profileViews = formData.profileViews ? parseInt(formData.profileViews) : null;
+        data.engagementRate = formData.engagementRate ? parseFloat(formData.engagementRate) : null;
+      } else {
+        data.totalViews = formData.totalViews ? parseInt(formData.totalViews) : null;
+        data.totalLikes = formData.totalLikes ? parseInt(formData.totalLikes) : null;
+        data.totalComments = formData.totalComments ? parseInt(formData.totalComments) : null;
+        data.totalShares = formData.totalShares ? parseInt(formData.totalShares) : null;
+      }
 
-      // Extract memory from metrics update (runs in background)
-      extractFromMetrics(accountId, "account", {
-        platform,
-        followers: metricsData.followers,
+      const res = await fetch("/api/analytics/account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       });
 
-      toast.success("Metrics saved successfully");
-      onSuccess();
-      onOpenChange(false);
-      setFormData({
-        followers: "",
-        reach: "",
-        impressions: "",
-        profileViews: "",
-        engagementRate: "",
-        totalViews: "",
-        totalLikes: "",
-        totalComments: "",
-        totalShares: "",
-      });
+      if (res.ok) {
+        toast.success("Metrics saved successfully");
+        onSuccess();
+        onOpenChange(false);
+        setFormData({
+          followers: "",
+          reach: "",
+          impressions: "",
+          profileViews: "",
+          engagementRate: "",
+          totalViews: "",
+          totalLikes: "",
+          totalComments: "",
+          totalShares: "",
+        });
+      } else {
+        toast.error("Failed to save metrics");
+      }
     } catch (error) {
       console.error("Failed to save metrics:", error);
       toast.error("Failed to save metrics");

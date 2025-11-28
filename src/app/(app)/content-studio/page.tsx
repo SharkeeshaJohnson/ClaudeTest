@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { useCompletion } from "@ai-sdk/react";
+import { useIdentityToken } from "@privy-io/react-auth";
 import {
   Sparkles,
   Clock,
   Smile,
-  Save,
   Calendar,
   Lightbulb,
   Copy,
@@ -15,20 +14,14 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useAccountStore } from "@/store/account-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { videoService, ideaService, settingsService } from "@/lib/db/services";
+import { getModelForTask } from "@/lib/portal/config";
 
 const toneOptions = [
   { value: "funny", label: "Funny", icon: "😄" },
@@ -45,30 +38,83 @@ const durationOptions = [
   { value: "60", label: "60 seconds", description: "In-depth story" },
 ];
 
+const AI_JOURNEY_PROMPT = `You are a social media content strategist specializing in AI/tech content for TikTok and Instagram Reels.
+
+Create a complete video content package based on the following details:
+- Topic: {topic}
+- Duration: {duration} seconds
+- Tone: {tone}
+
+Generate the following in a structured format:
+
+## Hook (First 3 seconds)
+A powerful attention-grabbing opening line that stops scrollers.
+
+## Script
+A complete spoken script with timing markers like [0:03], [0:10], etc. Make it conversational and engaging.
+
+## Video Structure
+- Intro (3s): Hook
+- Body ({bodyDuration}s): Main content points
+- CTA (5s): Call to action
+
+## Shot List
+Bullet points of what to film/show at each section.
+
+## Caption
+An engaging caption for the post.
+
+## Hashtags
+10 relevant hashtags for maximum reach.
+
+Keep the content authentic, relatable, and optimized for short-form video engagement.`;
+
+const DOG_CONTENT_PROMPT = `You are a pet content strategist specializing in viral dog content for TikTok and Instagram Reels.
+
+Create a complete video content package based on the following details:
+- Theme: {topic}
+- Duration: {duration} seconds
+- Tone: {tone}
+
+Generate the following in a structured format:
+
+## Hook (First 3 seconds)
+A cute/funny opening that immediately captures attention.
+
+## Filming Idea
+Describe exactly what to capture - scenarios, reactions, moments to look for.
+
+## Setup Instructions
+How to set up the shot, what props to use, lighting tips.
+
+## Suggested Audio
+Trending sounds or music that would work well with this content.
+
+## Caption
+An engaging caption that connects with pet lovers.
+
+## Hashtags
+10 viral pet hashtags for maximum reach.
+
+## Pro Tips
+Extra tips for capturing the best moments with your pet.
+
+Focus on authentic, heartwarming, or funny content that resonates with pet lovers.`;
+
 export default function ContentStudioPage() {
   const { selectedAccountId, accounts } = useAccountStore();
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+  const { identityToken } = useIdentityToken();
   const [topic, setTopic] = useState("");
   const [duration, setDuration] = useState("30");
   const [tone, setTone] = useState("educational");
   const [copied, setCopied] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedContent, setGeneratedContent] = useState("");
 
   const isAiJourney = selectedAccount?.type === "ai_journey";
 
-  const { completion, complete, isLoading } = useCompletion({
-    api: "/api/content/generate",
-    body: {
-      accountId: selectedAccountId,
-      topic,
-      duration: parseInt(duration),
-      tone,
-    },
-    onError: (error) => {
-      toast.error(error.message || "Failed to generate content");
-    },
-  });
-
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     if (!selectedAccountId) {
       toast.error("Please select an account first");
       return;
@@ -77,76 +123,155 @@ export default function ContentStudioPage() {
       toast.error("Please enter a topic");
       return;
     }
-    await complete(topic);
-  };
+
+    setIsGenerating(true);
+    setGeneratedContent("");
+
+    try {
+      // Get user's preferred model
+      const settings = await settingsService.get();
+      const model = getModelForTask("creative", settings.creativeModel);
+
+      // Build the prompt
+      const bodyDuration = parseInt(duration) - 8;
+      const basePrompt = isAiJourney ? AI_JOURNEY_PROMPT : DOG_CONTENT_PROMPT;
+      const prompt = basePrompt
+        .replace("{topic}", topic)
+        .replace("{duration}", duration)
+        .replace("{tone}", tone)
+        .replace("{bodyDuration}", bodyDuration.toString());
+
+      // Get identity token
+      if (!identityToken) {
+        throw new Error("Not authenticated");
+      }
+      const token = identityToken;
+      console.log("[ContentStudio] Token type:", typeof token);
+      console.log("[ContentStudio] Token prefix:", token.substring(0, 30));
+      console.log("[ContentStudio] Token length:", token.length);
+
+      // Decode JWT to check expiration
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        console.log("[ContentStudio] Token payload:", payload);
+        console.log("[ContentStudio] Token exp:", new Date(payload.exp * 1000).toISOString());
+        console.log("[ContentStudio] Current time:", new Date().toISOString());
+        console.log("[ContentStudio] Token expired?:", Date.now() > payload.exp * 1000);
+      } catch (e) {
+        console.log("[ContentStudio] Could not decode token:", e);
+      }
+
+      // Call Portal API
+      const response = await fetch("https://ai-portal-dev.zetachain.com/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "user", content: prompt }
+          ],
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate content");
+      }
+
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let content = "";
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6);
+              if (data === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta?.content || "";
+                content += delta;
+                setGeneratedContent(content);
+              } catch {
+                // Skip invalid JSON
+              }
+            }
+          }
+        }
+      }
+
+      toast.success("Content generated!");
+    } catch (error) {
+      console.error("Failed to generate:", error);
+      toast.error("Failed to generate content");
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [selectedAccountId, topic, duration, tone, isAiJourney, identityToken]);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(completion);
+    navigator.clipboard.writeText(generatedContent);
     setCopied(true);
     toast.success("Copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleSaveToCalendar = async () => {
-    if (!completion || !selectedAccountId) return;
+    if (!generatedContent || !selectedAccountId) return;
 
     try {
-      // Extract title from the topic
-      const res = await fetch("/api/videos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountId: selectedAccountId,
-          title: topic,
-          script: completion,
-          duration: parseInt(duration),
-          status: "planned",
-          scheduledDate: new Date().toISOString(),
-        }),
+      await videoService.create({
+        accountId: selectedAccountId,
+        title: topic,
+        script: generatedContent,
+        duration: parseInt(duration),
+        status: "planned",
+        scheduledDate: Date.now(),
       });
 
-      if (res.ok) {
-        toast.success("Saved to calendar!");
-      } else {
-        toast.error("Failed to save");
-      }
+      toast.success("Saved to calendar!");
     } catch (error) {
+      console.error("Failed to save:", error);
       toast.error("Failed to save");
     }
   };
 
   const handleSaveToIdeas = async () => {
-    if (!completion || !selectedAccountId) return;
+    if (!generatedContent || !selectedAccountId) return;
 
     try {
-      const res = await fetch("/api/ideas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountId: selectedAccountId,
-          title: topic,
-          description: completion.slice(0, 500),
-          priority: 4,
-          tags: ["ai-generated", tone],
-        }),
+      await ideaService.create({
+        accountId: selectedAccountId,
+        title: topic,
+        description: generatedContent.slice(0, 500),
+        priority: 4,
+        tags: ["ai-generated", tone],
       });
 
-      if (res.ok) {
-        toast.success("Saved to idea bank!");
-      } else {
-        toast.error("Failed to save");
-      }
+      toast.success("Saved to idea bank!");
     } catch (error) {
+      console.error("Failed to save:", error);
       toast.error("Failed to save");
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Content Studio</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-subsection text-foreground">Content Studio</h1>
+        <p className="text-muted-foreground mt-1">
           Generate scripts, hooks, and content ideas with AI
         </p>
       </div>
@@ -156,12 +281,7 @@ export default function ContentStudioPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles
-                className={cn(
-                  "h-5 w-5",
-                  isAiJourney ? "text-blue-500" : "text-orange-500"
-                )}
-              />
+              <Sparkles className="h-5 w-5 text-primary" />
               Generate Content
             </CardTitle>
           </CardHeader>
@@ -198,9 +318,7 @@ export default function ContentStudioPage() {
                     className={cn(
                       "p-3 rounded-lg border text-center transition-all",
                       duration === option.value
-                        ? isAiJourney
-                          ? "border-blue-500 bg-blue-500/10"
-                          : "border-orange-500 bg-orange-500/10"
+                        ? "border-primary bg-primary/10"
                         : "border-border hover:border-primary/50"
                     )}
                     whileHover={{ scale: 1.02 }}
@@ -229,9 +347,7 @@ export default function ContentStudioPage() {
                     className={cn(
                       "p-2 rounded-lg border text-center transition-all",
                       tone === option.value
-                        ? isAiJourney
-                          ? "border-blue-500 bg-blue-500/10"
-                          : "border-orange-500 bg-orange-500/10"
+                        ? "border-primary bg-primary/10"
                         : "border-border hover:border-primary/50"
                     )}
                     whileHover={{ scale: 1.02 }}
@@ -247,15 +363,10 @@ export default function ContentStudioPage() {
             {/* Generate Button */}
             <Button
               onClick={handleGenerate}
-              disabled={isLoading || !topic.trim()}
-              className={cn(
-                "w-full",
-                isAiJourney
-                  ? "bg-blue-500 hover:bg-blue-600"
-                  : "bg-orange-500 hover:bg-orange-600"
-              )}
+              disabled={isGenerating || !topic.trim()}
+              className="w-full bg-primary hover:bg-primary/90"
             >
-              {isLoading ? (
+              {isGenerating ? (
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -265,7 +376,7 @@ export default function ContentStudioPage() {
               ) : (
                 <Sparkles className="h-4 w-4 mr-2" />
               )}
-              {isLoading ? "Generating..." : "Generate Content"}
+              {isGenerating ? "Generating..." : "Generate Content"}
             </Button>
           </CardContent>
         </Card>
@@ -275,7 +386,7 @@ export default function ContentStudioPage() {
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span>Generated Content</span>
-              {completion && (
+              {generatedContent && (
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -294,28 +405,23 @@ export default function ContentStudioPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {isGenerating ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <motion.div
                     animate={{ rotate: 360 }}
                     transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                   >
-                    <Sparkles
-                      className={cn(
-                        "h-5 w-5",
-                        isAiJourney ? "text-blue-500" : "text-orange-500"
-                      )}
-                    />
+                    <Sparkles className="h-5 w-5 text-primary" />
                   </motion.div>
                   <span className="text-muted-foreground">
                     AI is crafting your content...
                   </span>
                 </div>
-                {completion && (
+                {generatedContent && (
                   <div className="prose prose-sm dark:prose-invert max-w-none">
                     <div className="whitespace-pre-wrap text-sm">
-                      {completion}
+                      {generatedContent}
                       <motion.span
                         animate={{ opacity: [1, 0] }}
                         transition={{ duration: 0.5, repeat: Infinity }}
@@ -326,14 +432,14 @@ export default function ContentStudioPage() {
                   </div>
                 )}
               </div>
-            ) : completion ? (
+            ) : generatedContent ? (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-4"
               >
                 <div className="prose prose-sm dark:prose-invert max-w-none max-h-[500px] overflow-y-auto">
-                  <div className="whitespace-pre-wrap text-sm">{completion}</div>
+                  <div className="whitespace-pre-wrap text-sm">{generatedContent}</div>
                 </div>
 
                 {/* Action Buttons */}
@@ -384,8 +490,8 @@ export default function ContentStudioPage() {
                 <div className="space-y-1">
                   <Badge variant="secondary">Hook Ideas</Badge>
                   <p className="text-xs text-muted-foreground">
-                    "I just built X in Y minutes with AI" or "This AI tool
-                    changed everything"
+                    &quot;I just built X in Y minutes with AI&quot; or &quot;This AI tool
+                    changed everything&quot;
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -414,7 +520,7 @@ export default function ContentStudioPage() {
                 <div className="space-y-1">
                   <Badge variant="secondary">Trending Sounds</Badge>
                   <p className="text-xs text-muted-foreground">
-                    Check TikTok's sound library for trending pet-related audios
+                    Check TikTok&apos;s sound library for trending pet-related audios
                   </p>
                 </div>
                 <div className="space-y-1">

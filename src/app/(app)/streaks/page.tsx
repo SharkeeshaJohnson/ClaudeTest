@@ -18,19 +18,8 @@ import { useAccountStore } from "@/store/account-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format, subDays, isSameDay } from "date-fns";
-
-interface StreakData {
-  id: string;
-  currentStreak: number;
-  longestStreak: number;
-  totalXP: number;
-  lastActivityDate: string | null;
-}
-
-interface Video {
-  id: string;
-  postedDate: string | null;
-}
+import { streakService, videoService } from "@/lib/db/services";
+import type { Streak, Video } from "@/lib/db";
 
 const milestones = [
   { days: 7, title: "First Week!", icon: "🎯", xp: 100 },
@@ -55,7 +44,7 @@ const levels = [
 export default function StreaksPage() {
   const { selectedAccountId, accounts } = useAccountStore();
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
-  const [streak, setStreak] = useState<StreakData | null>(null);
+  const [streak, setStreak] = useState<Streak | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -68,23 +57,19 @@ export default function StreaksPage() {
     setIsLoading(true);
 
     try {
-      // Fetch streak
-      const streakRes = await fetch(`/api/streaks/${selectedAccountId}`);
-      if (streakRes.ok) {
-        const data = await streakRes.json();
-        setStreak(data);
-      }
+      // Fetch streak (auto-creates if doesn't exist)
+      const streakData = await streakService.getByAccountId(selectedAccountId);
+      setStreak(streakData);
 
       // Fetch videos for calendar heat map
-      const videosRes = await fetch(
-        `/api/videos?accountId=${selectedAccountId}&status=posted`
-      );
-      if (videosRes.ok) {
-        const data = await videosRes.json();
-        setVideos(data);
-      }
+      const videosData = await videoService.getAll({
+        accountId: selectedAccountId,
+        status: "posted"
+      });
+      setVideos(videosData);
     } catch (error) {
       console.error("Failed to fetch streak data:", error);
+      toast.error("Failed to load streak data");
     } finally {
       setIsLoading(false);
     }
@@ -95,34 +80,36 @@ export default function StreaksPage() {
   }, [fetchData]);
 
   const handleCheckIn = async () => {
-    if (!selectedAccountId) return;
+    if (!selectedAccountId || !streak) return;
 
     try {
-      const res = await fetch(`/api/streaks/${selectedAccountId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "checkin" }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setStreak(data.streak);
-
-        // Check for milestone
-        const milestone = milestones.find(
-          (m) => m.days === data.streak.currentStreak
-        );
-        if (milestone) {
-          setShowConfetti(true);
-          toast.success(`${milestone.icon} ${milestone.title}`, {
-            description: `You earned ${milestone.xp} bonus XP!`,
-          });
-          setTimeout(() => setShowConfetti(false), 3000);
-        } else {
-          toast.success(`+${data.xpGained} XP earned!`);
+      // Check if already checked in today
+      if (streak.lastActivityDate) {
+        const lastActivity = new Date(streak.lastActivityDate).toDateString();
+        const today = new Date().toDateString();
+        if (lastActivity === today) {
+          toast.info("You've already checked in today!");
+          return;
         }
       }
+
+      // Use the recordActivity service method
+      const result = await streakService.recordActivity(selectedAccountId, "checkin");
+      setStreak(result.streak);
+
+      // Check for milestone
+      const milestone = milestones.find((m) => m.days === result.streak.currentStreak);
+      if (milestone) {
+        setShowConfetti(true);
+        toast.success(`${milestone.icon} ${milestone.title}`, {
+          description: `You earned ${milestone.xp} bonus XP!`,
+        });
+        setTimeout(() => setShowConfetti(false), 3000);
+      } else {
+        toast.success(`+${result.xpGained} XP earned!`);
+      }
     } catch (error) {
+      console.error("Failed to check in:", error);
       toast.error("Failed to check in");
     }
   };
@@ -145,9 +132,14 @@ export default function StreaksPage() {
   // Generate heat map data (last 90 days)
   const heatMapDays = Array.from({ length: 90 }, (_, i) => {
     const date = subDays(new Date(), 89 - i);
-    const hasPost = videos.some(
-      (v) => v.postedDate && isSameDay(new Date(v.postedDate), date)
-    );
+    const hasPost = videos.some((v) => {
+      if (!v.postedDate) return false;
+      // postedDate is stored as timestamp number in local DB
+      const postedDate = typeof v.postedDate === "number"
+        ? new Date(v.postedDate)
+        : new Date(v.postedDate);
+      return isSameDay(postedDate, date);
+    });
     return { date, hasPost };
   });
 
@@ -157,7 +149,7 @@ export default function StreaksPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Confetti */}
       <AnimatePresence>
         {showConfetti && (
@@ -180,8 +172,8 @@ export default function StreaksPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Streaks & Gamification</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-subsection text-foreground">Streaks & Gamification</h1>
+        <p className="text-muted-foreground mt-1">
           Track your posting streaks and earn XP
         </p>
       </div>
@@ -193,18 +185,8 @@ export default function StreaksPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Card
-            className={cn(
-              "relative overflow-hidden",
-              isAiJourney ? "border-blue-500/50" : "border-orange-500/50"
-            )}
-          >
-            <div
-              className={cn(
-                "absolute inset-0 opacity-10",
-                isAiJourney ? "bg-blue-500" : "bg-orange-500"
-              )}
-            />
+          <Card className="relative overflow-hidden border-primary/50">
+            <div className="absolute inset-0 opacity-10 bg-primary" />
             <CardContent className="pt-6 relative">
               <div className="flex items-center justify-between">
                 <div>

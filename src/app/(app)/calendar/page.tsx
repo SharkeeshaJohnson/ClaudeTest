@@ -3,12 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
   Plus,
   Video,
-  Instagram,
 } from "lucide-react";
 import {
   format,
@@ -30,19 +28,9 @@ import { useAccountStore } from "@/store/account-store";
 import { cn } from "@/lib/utils";
 import { VideoDialog } from "@/components/calendar/video-dialog";
 import { VideoDetailDialog } from "@/components/calendar/video-detail-dialog";
-
-interface VideoItem {
-  id: string;
-  title: string;
-  status: string;
-  duration: number;
-  scheduledDate: string | null;
-  postedDate: string | null;
-  account: {
-    id: string;
-    type: string;
-  };
-}
+import { toast } from "sonner";
+import { videoService } from "@/lib/db/services";
+import type { Video as VideoType } from "@/lib/db";
 
 const statusColors: Record<string, string> = {
   planned: "bg-gray-500",
@@ -63,11 +51,11 @@ export default function CalendarPage() {
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<"month" | "week">("month");
-  const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [videos, setVideos] = useState<VideoType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<VideoType | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
 
   const isAiJourney = selectedAccount?.type === "ai_journey";
@@ -76,13 +64,11 @@ export default function CalendarPage() {
     if (!selectedAccountId) return;
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/videos?accountId=${selectedAccountId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setVideos(data);
-      }
+      const data = await videoService.getAll({ accountId: selectedAccountId });
+      setVideos(data);
     } catch (error) {
       console.error("Failed to fetch videos:", error);
+      toast.error("Failed to load videos");
     } finally {
       setIsLoading(false);
     }
@@ -118,6 +104,10 @@ export default function CalendarPage() {
     });
   };
 
+  const handleVideoSaved = () => {
+    fetchVideos();
+  };
+
   const handlePrevious = () => {
     setCurrentDate(view === "month" ? subMonths(currentDate, 1) : subMonths(currentDate, 0.25));
   };
@@ -131,7 +121,7 @@ export default function CalendarPage() {
     setIsVideoDialogOpen(true);
   };
 
-  const handleVideoClick = (video: VideoItem, e: React.MouseEvent) => {
+  const handleVideoClick = (video: VideoType, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedVideo(video);
     setIsDetailDialogOpen(true);
@@ -141,12 +131,12 @@ export default function CalendarPage() {
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Content Calendar</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-subsection text-foreground">Content Calendar</h1>
+          <p className="text-muted-foreground mt-1">
             Plan and schedule your content
           </p>
         </div>
@@ -155,11 +145,7 @@ export default function CalendarPage() {
             setSelectedDate(new Date());
             setIsVideoDialogOpen(true);
           }}
-          className={cn(
-            isAiJourney
-              ? "bg-blue-500 hover:bg-blue-600"
-              : "bg-orange-500 hover:bg-orange-600"
-          )}
+          className="bg-primary hover:bg-primary/90"
         >
           <Plus className="h-4 w-4 mr-2" />
           Add Content
@@ -285,7 +271,7 @@ export default function CalendarPage() {
         onOpenChange={setIsVideoDialogOpen}
         selectedDate={selectedDate}
         accountId={selectedAccountId}
-        onSuccess={fetchVideos}
+        onSuccess={handleVideoSaved}
       />
 
       {/* Video Detail Dialog */}
@@ -293,7 +279,7 @@ export default function CalendarPage() {
         open={isDetailDialogOpen}
         onOpenChange={setIsDetailDialogOpen}
         video={selectedVideo}
-        onSuccess={fetchVideos}
+        onSuccess={handleVideoSaved}
       />
     </div>
   );

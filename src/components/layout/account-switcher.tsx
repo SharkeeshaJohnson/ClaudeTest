@@ -4,27 +4,16 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Bot, Dog } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAccountStore, AccountType } from "@/store/account-store";
+import { useAccountStore, type AccountType } from "@/store/account-store";
 
 export function AccountSwitcher() {
-  const { accounts, selectedAccountId, selectAccount, setAccounts } =
+  const { accounts, selectedAccountId, selectAccount, loadAccounts, isLoading } =
     useAccountStore();
 
-  // Fetch accounts on mount
+  // Load accounts from local DB on mount
   useEffect(() => {
-    async function fetchAccounts() {
-      try {
-        const res = await fetch("/api/accounts");
-        if (res.ok) {
-          const data = await res.json();
-          setAccounts(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch accounts:", error);
-      }
-    }
-    fetchAccounts();
-  }, [setAccounts]);
+    loadAccounts();
+  }, [loadAccounts]);
 
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
   const accountType = selectedAccount?.type as AccountType | undefined;
@@ -44,10 +33,18 @@ export function AccountSwitcher() {
     return type === "ai_journey" ? "ring-blue-500" : "ring-orange-500";
   };
 
-  if (accounts.length === 0) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center gap-2 py-2">
         <span className="text-sm text-muted-foreground">Loading accounts...</span>
+      </div>
+    );
+  }
+
+  if (accounts.length === 0) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-2">
+        <span className="text-sm text-muted-foreground">No accounts yet</span>
       </div>
     );
   }

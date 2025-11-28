@@ -14,23 +14,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-
-interface Idea {
-  id: string;
-  accountId: string;
-  title: string;
-  description: string | null;
-  priority: number;
-  status: string;
-  tags: string[];
-}
+import { ideaService } from "@/lib/db/services";
+import type { Idea } from "@/lib/db";
 
 interface IdeaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accountId: string | null;
   idea: Idea | null;
-  onSuccess: () => void;
+  onSuccess: (idea: Idea) => void;
 }
 
 export function IdeaDialog({
@@ -75,36 +67,43 @@ export function IdeaDialog({
 
     setIsLoading(true);
     try {
-      const url = idea ? `/api/ideas/${idea.id}` : "/api/ideas";
-      const method = idea ? "PUT" : "POST";
+      const tags = formData.tags
+        ? formData.tags.split(",").map((t) => t.trim()).filter(Boolean)
+        : [];
 
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...(idea ? {} : { accountId }),
+      let savedIdea: Idea;
+
+      if (idea) {
+        // Update existing idea
+        const updated = await ideaService.update(idea.id, {
           title: formData.title,
-          description: formData.description || null,
+          description: formData.description || undefined,
           priority: formData.priority,
-          tags: formData.tags
-            ? formData.tags.split(",").map((t) => t.trim())
-            : [],
-        }),
-      });
-
-      if (res.ok) {
-        toast.success(idea ? "Idea updated" : "Idea created");
-        onSuccess();
-        onOpenChange(false);
-        setFormData({
-          title: "",
-          description: "",
-          priority: 3,
-          tags: "",
+          tags,
         });
+        if (!updated) throw new Error("Failed to update idea");
+        savedIdea = updated;
+        toast.success("Idea updated");
       } else {
-        toast.error(idea ? "Failed to update idea" : "Failed to create idea");
+        // Create new idea
+        savedIdea = await ideaService.create({
+          accountId: accountId!,
+          title: formData.title,
+          description: formData.description || undefined,
+          priority: formData.priority,
+          tags,
+        });
+        toast.success("Idea created");
       }
+
+      onSuccess(savedIdea);
+      onOpenChange(false);
+      setFormData({
+        title: "",
+        description: "",
+        priority: 3,
+        tags: "",
+      });
     } catch (error) {
       console.error("Failed to save idea:", error);
       toast.error("Failed to save idea");

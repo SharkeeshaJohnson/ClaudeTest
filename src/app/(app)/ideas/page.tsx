@@ -13,7 +13,7 @@ import {
   Trash2,
   Edit,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -34,22 +34,9 @@ import { useAccountStore } from "@/store/account-store";
 import { cn } from "@/lib/utils";
 import { IdeaDialog } from "@/components/ideas/idea-dialog";
 import { toast } from "sonner";
-
-interface Idea {
-  id: string;
-  accountId: string;
-  title: string;
-  description: string | null;
-  priority: number;
-  status: string;
-  tags: string[];
-  createdAt: string;
-  account: {
-    id: string;
-    type: string;
-    name: string;
-  };
-}
+import { ideaService } from "@/lib/db/services";
+import { useMemoryExtractor } from "@/lib/memory";
+import type { Idea } from "@/lib/db";
 
 const statusColors: Record<string, string> = {
   new: "bg-blue-500",
@@ -76,23 +63,22 @@ export default function IdeasPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingIdea, setEditingIdea] = useState<Idea | null>(null);
 
+  const { extractFromIdea } = useMemoryExtractor();
   const isAiJourney = selectedAccount?.type === "ai_journey";
 
   const fetchIdeas = useCallback(async () => {
     if (!selectedAccountId) return;
     setIsLoading(true);
     try {
-      let url = `/api/ideas?accountId=${selectedAccountId}`;
-      if (statusFilter !== "all") url += `&status=${statusFilter}`;
-      if (priorityFilter !== "all") url += `&priority=${priorityFilter}`;
-
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        setIdeas(data);
-      }
+      const data = await ideaService.getAll({
+        accountId: selectedAccountId,
+        status: statusFilter !== "all" ? statusFilter as Idea["status"] : undefined,
+        priority: priorityFilter !== "all" ? parseInt(priorityFilter) : undefined,
+      });
+      setIdeas(data);
     } catch (error) {
       console.error("Failed to fetch ideas:", error);
+      toast.error("Failed to load ideas");
     } finally {
       setIsLoading(false);
     }
@@ -102,18 +88,11 @@ export default function IdeasPage() {
     fetchIdeas();
   }, [fetchIdeas]);
 
-  const handleUpdateStatus = async (ideaId: string, newStatus: string) => {
+  const handleUpdateStatus = async (ideaId: string, newStatus: Idea["status"]) => {
     try {
-      const res = await fetch(`/api/ideas/${ideaId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (res.ok) {
-        toast.success("Idea updated");
-        fetchIdeas();
-      }
+      await ideaService.update(ideaId, { status: newStatus });
+      toast.success("Idea updated");
+      fetchIdeas();
     } catch (error) {
       toast.error("Failed to update idea");
     }
@@ -123,14 +102,9 @@ export default function IdeasPage() {
     if (!confirm("Are you sure you want to delete this idea?")) return;
 
     try {
-      const res = await fetch(`/api/ideas/${ideaId}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        toast.success("Idea deleted");
-        fetchIdeas();
-      }
+      await ideaService.delete(ideaId);
+      toast.success("Idea deleted");
+      fetchIdeas();
     } catch (error) {
       toast.error("Failed to delete idea");
     }
@@ -139,6 +113,18 @@ export default function IdeasPage() {
   const handleEdit = (idea: Idea) => {
     setEditingIdea(idea);
     setIsDialogOpen(true);
+  };
+
+  const handleIdeaSaved = async (idea: Idea) => {
+    // Extract memory from the idea (runs in background)
+    if (selectedAccountId) {
+      extractFromIdea(selectedAccountId, {
+        title: idea.title,
+        description: idea.description,
+        tags: idea.tags,
+      });
+    }
+    fetchIdeas();
   };
 
   const filteredIdeas = ideas.filter((idea) => {
@@ -168,12 +154,12 @@ export default function IdeasPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Idea Bank</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-subsection text-foreground">Idea Bank</h1>
+          <p className="text-muted-foreground mt-1">
             Store and organize your content ideas
           </p>
         </div>
@@ -182,11 +168,7 @@ export default function IdeasPage() {
             setEditingIdea(null);
             setIsDialogOpen(true);
           }}
-          className={cn(
-            isAiJourney
-              ? "bg-blue-500 hover:bg-blue-600"
-              : "bg-orange-500 hover:bg-orange-600"
-          )}
+          className="bg-primary hover:bg-primary/90"
         >
           <Plus className="h-4 w-4 mr-2" />
           Add Idea
@@ -367,7 +349,7 @@ export default function IdeasPage() {
         }}
         accountId={selectedAccountId}
         idea={editingIdea}
-        onSuccess={fetchIdeas}
+        onSuccess={handleIdeaSaved}
       />
     </div>
   );

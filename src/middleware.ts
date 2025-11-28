@@ -1,21 +1,23 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const publicPaths = ["/login"];
+const publicPaths = ["/", "/login", "/onboarding"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public paths
-  if (publicPaths.some((path) => pathname.startsWith(path))) {
+  // Allow public paths (exact match for "/" to avoid matching everything)
+  if (pathname === "/" || pathname === "/login" || pathname.startsWith("/onboarding")) {
     return NextResponse.next();
   }
 
   // Check for Privy auth token in cookies
-  const privyToken = request.cookies.get("privy-token");
+  // Privy v3.x uses "privy-id-token" as the cookie name
+  const privyToken = request.cookies.get("privy-id-token");
 
   // If no token, redirect to login
   if (!privyToken) {
+    console.log(`[Middleware] No privy token, redirecting ${pathname} to /login`);
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }

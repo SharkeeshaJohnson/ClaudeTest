@@ -20,6 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { videoService } from "@/lib/db/services";
+import type { Video } from "@/lib/db";
 
 interface VideoDialogProps {
   open: boolean;
@@ -56,40 +58,34 @@ export function VideoDialog({
 
     setIsLoading(true);
     try {
-      const res = await fetch("/api/videos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountId,
-          title: formData.title,
-          script: formData.script || null,
-          caption: formData.caption || null,
-          hashtags: formData.hashtags
-            ? formData.hashtags.split(",").map((h) => h.trim())
-            : [],
-          hook: formData.hook || null,
-          duration: parseInt(formData.duration),
-          status: formData.status,
-          scheduledDate: selectedDate?.toISOString(),
-        }),
+      const hashtags = formData.hashtags
+        ? formData.hashtags.split(",").map((h) => h.trim()).filter(Boolean)
+        : [];
+
+      await videoService.create({
+        accountId,
+        title: formData.title,
+        script: formData.script || undefined,
+        caption: formData.caption || undefined,
+        hashtags,
+        hook: formData.hook || undefined,
+        duration: parseInt(formData.duration),
+        status: formData.status as Video["status"],
+        scheduledDate: selectedDate?.getTime(),
       });
 
-      if (res.ok) {
-        toast.success("Video added to calendar");
-        onSuccess();
-        onOpenChange(false);
-        setFormData({
-          title: "",
-          script: "",
-          caption: "",
-          hashtags: "",
-          hook: "",
-          duration: "30",
-          status: "planned",
-        });
-      } else {
-        toast.error("Failed to create video");
-      }
+      toast.success("Video added to calendar");
+      onSuccess();
+      onOpenChange(false);
+      setFormData({
+        title: "",
+        script: "",
+        caption: "",
+        hashtags: "",
+        hook: "",
+        duration: "30",
+        status: "planned",
+      });
     } catch (error) {
       console.error("Failed to create video:", error);
       toast.error("Failed to create video");

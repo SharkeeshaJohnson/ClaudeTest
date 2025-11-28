@@ -34,35 +34,12 @@ import { cn } from "@/lib/utils";
 import { MetricsInputDialog } from "@/components/analytics/metrics-input-dialog";
 import { VideoMetricsDialog } from "@/components/analytics/video-metrics-dialog";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import { metricsService, videoService, exportService } from "@/lib/db/services";
+import type { AccountMetric, Video, VideoMetric } from "@/lib/db";
 
-interface AccountMetric {
-  id: string;
-  platform: string;
-  followers: number;
-  reach?: number;
-  impressions?: number;
-  profileViews?: number;
-  engagementRate?: number;
-  totalViews?: number;
-  totalLikes?: number;
-  totalComments?: number;
-  totalShares?: number;
-  recordedAt: string;
-}
-
-interface VideoWithMetrics {
-  id: string;
-  title: string;
-  status: string;
-  duration: number;
-  postedDate: string | null;
-  metrics: {
-    views: number;
-    likes: number;
-    comments: number;
-    shares: number;
-    platform: string;
-  }[];
+interface VideoWithMetrics extends Video {
+  metrics: VideoMetric[];
 }
 
 export default function AnalyticsPage() {
@@ -85,24 +62,27 @@ export default function AnalyticsPage() {
 
     try {
       // Fetch account metrics
-      const metricsRes = await fetch(
-        `/api/analytics/account?accountId=${selectedAccountId}&platform=${platform}`
-      );
-      if (metricsRes.ok) {
-        const data = await metricsRes.json();
-        setAccountMetrics(data);
-      }
+      const metricsData = await metricsService.getAccountMetrics(selectedAccountId, { platform });
+      setAccountMetrics(metricsData);
 
       // Fetch videos with metrics
-      const videosRes = await fetch(
-        `/api/videos?accountId=${selectedAccountId}&status=posted`
+      const videosData = await videoService.getAll({
+        accountId: selectedAccountId,
+        status: "posted"
+      });
+
+      // Get metrics for each video
+      const videosWithMetrics: VideoWithMetrics[] = await Promise.all(
+        videosData.map(async (video) => {
+          const metrics = await metricsService.getVideoMetrics(video.id);
+          return { ...video, metrics };
+        })
       );
-      if (videosRes.ok) {
-        const data = await videosRes.json();
-        setVideos(data);
-      }
+
+      setVideos(videosWithMetrics);
     } catch (error) {
       console.error("Failed to fetch analytics:", error);
+      toast.error("Failed to load analytics");
     } finally {
       setIsLoading(false);
     }
@@ -144,6 +124,10 @@ export default function AnalyticsPage() {
     engagement:
       (m.totalLikes || 0) + (m.totalComments || 0) + (m.totalShares || 0),
   }));
+
+  const handleMetricsSaved = () => {
+    fetchData();
+  };
 
   // Top videos by views
   const topVideos = [...videos]
@@ -191,17 +175,28 @@ export default function AnalyticsPage() {
   const handleExportJSON = async () => {
     if (!selectedAccountId) return;
 
-    // Open the export URL in a new window to trigger download
-    window.open(`/api/export?accountId=${selectedAccountId}&type=all`, "_blank");
+    try {
+      const exportData = await exportService.exportAccount(selectedAccountId);
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `smcc-export-${selectedAccount?.name || "account"}-${format(new Date(), "yyyy-MM-dd")}.json`;
+      a.click();
+      toast.success("Data exported successfully");
+    } catch (error) {
+      console.error("Failed to export data:", error);
+      toast.error("Failed to export data");
+    }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Analytics</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-subsection text-foreground">Analytics</h1>
+          <p className="text-muted-foreground mt-1">
             Track your performance metrics
           </p>
         </div>
@@ -216,11 +211,7 @@ export default function AnalyticsPage() {
           </Button>
           <Button
             onClick={() => setIsAccountDialogOpen(true)}
-            className={cn(
-              isAiJourney
-                ? "bg-blue-500 hover:bg-blue-600"
-                : "bg-orange-500 hover:bg-orange-600"
-            )}
+            className="bg-primary hover:bg-primary/90"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Metrics
@@ -499,7 +490,7 @@ export default function AnalyticsPage() {
         onOpenChange={setIsAccountDialogOpen}
         accountId={selectedAccountId}
         platform={platform}
-        onSuccess={fetchData}
+        onSuccess={handleMetricsSaved}
       />
 
       <VideoMetricsDialog
@@ -508,7 +499,7 @@ export default function AnalyticsPage() {
         videos={videos}
         selectedVideo={selectedVideo}
         platform={platform}
-        onSuccess={fetchData}
+        onSuccess={handleMetricsSaved}
       />
     </div>
   );

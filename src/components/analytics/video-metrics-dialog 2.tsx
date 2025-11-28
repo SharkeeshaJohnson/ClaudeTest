@@ -92,23 +92,32 @@ export function VideoMetricsDialog({
 
     setIsLoading(true);
     try {
-      await metricsService.upsertVideoMetric(videoId, platform, {
-        views: parseInt(formData.views) || 0,
-        likes: parseInt(formData.likes) || 0,
-        comments: parseInt(formData.comments) || 0,
-        shares: parseInt(formData.shares) || 0,
+      const res = await fetch(`/api/videos/${videoId}/metrics`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform,
+          views: parseInt(formData.views) || 0,
+          likes: parseInt(formData.likes) || 0,
+          comments: parseInt(formData.comments) || 0,
+          shares: parseInt(formData.shares) || 0,
+        }),
       });
 
-      toast.success("Video metrics saved");
-      onSuccess();
-      onOpenChange(false);
-      setFormData({
-        views: "",
-        likes: "",
-        comments: "",
-        shares: "",
-      });
-      setVideoId("");
+      if (res.ok) {
+        toast.success("Video metrics saved");
+        onSuccess();
+        onOpenChange(false);
+        setFormData({
+          views: "",
+          likes: "",
+          comments: "",
+          shares: "",
+        });
+        setVideoId("");
+      } else {
+        toast.error("Failed to save video metrics");
+      }
     } catch (error) {
       console.error("Failed to save video metrics:", error);
       toast.error("Failed to save video metrics");

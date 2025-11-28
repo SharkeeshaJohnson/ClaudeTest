@@ -24,23 +24,11 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { videoService, notesService } from "@/lib/db/services";
+import { useMemoryExtractor } from "@/lib/memory";
+import type { Video, VideoNote } from "@/lib/db";
 
-interface VideoItem {
-  id: string;
-  title: string;
-  status: string;
-  duration: number;
-  script?: string | null;
-  caption?: string | null;
-  hashtags?: string[];
-  hook?: string | null;
-  scheduledDate: string | null;
-  postedDate: string | null;
-  account: {
-    id: string;
-    type: string;
-  };
-}
+type VideoItem = Video;
 
 interface VideoDetailDialogProps {
   open: boolean;
@@ -77,6 +65,8 @@ export function VideoDetailDialog({
     tryNext: "",
   });
 
+  const { extractFromVideoNotes } = useMemoryExtractor();
+
   useEffect(() => {
     if (video) {
       setFormData({
@@ -96,16 +86,19 @@ export function VideoDetailDialog({
 
   const fetchNotes = async (videoId: string) => {
     try {
-      const res = await fetch(`/api/videos/${videoId}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.notes) {
-          setNotes({
-            whatWorked: data.notes.whatWorked || "",
-            whatDidnt: data.notes.whatDidnt || "",
-            tryNext: data.notes.tryNext || "",
-          });
-        }
+      const existingNotes = await notesService.getByVideoId(videoId);
+      if (existingNotes) {
+        setNotes({
+          whatWorked: existingNotes.whatWorked || "",
+          whatDidnt: existingNotes.whatDidnt || "",
+          tryNext: existingNotes.tryNext || "",
+        });
+      } else {
+        setNotes({
+          whatWorked: "",
+          whatDidnt: "",
+          tryNext: "",
+        });
       }
     } catch (error) {
       console.error("Failed to fetch notes:", error);
@@ -117,29 +110,23 @@ export function VideoDetailDialog({
 
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/videos/${video.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: formData.title,
-          script: formData.script || null,
-          caption: formData.caption || null,
-          hashtags: formData.hashtags
-            ? formData.hashtags.split(",").map((h) => h.trim())
-            : [],
-          hook: formData.hook || null,
-          duration: parseInt(formData.duration),
-          status: formData.status,
-          postedDate: formData.status === "posted" ? new Date().toISOString() : null,
-        }),
+      const hashtags = formData.hashtags
+        ? formData.hashtags.split(",").map((h) => h.trim()).filter(Boolean)
+        : [];
+
+      await videoService.update(video.id, {
+        title: formData.title,
+        script: formData.script || undefined,
+        caption: formData.caption || undefined,
+        hashtags,
+        hook: formData.hook || undefined,
+        duration: parseInt(formData.duration),
+        status: formData.status as Video["status"],
+        postedDate: formData.status === "posted" ? Date.now() : undefined,
       });
 
-      if (res.ok) {
-        toast.success("Video updated");
-        onSuccess();
-      } else {
-        toast.error("Failed to update video");
-      }
+      toast.success("Video updated");
+      onSuccess();
     } catch (error) {
       console.error("Failed to update video:", error);
       toast.error("Failed to update video");
@@ -153,16 +140,12 @@ export function VideoDetailDialog({
 
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/videos/${video.id}/notes`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(notes),
-      });
+      await notesService.upsert({ videoId: video.id, ...notes });
+      toast.success("Notes saved");
 
-      if (res.ok) {
-        toast.success("Notes saved");
-      } else {
-        toast.error("Failed to save notes");
+      // Extract memory from notes (runs in background)
+      if (video.accountId) {
+        extractFromVideoNotes(video.accountId, video.title, notes);
       }
     } catch (error) {
       console.error("Failed to save notes:", error);
@@ -179,17 +162,10 @@ export function VideoDetailDialog({
 
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/videos/${video.id}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        toast.success("Video deleted");
-        onSuccess();
-        onOpenChange(false);
-      } else {
-        toast.error("Failed to delete video");
-      }
+      await videoService.delete(video.id);
+      toast.success("Video deleted");
+      onSuccess();
+      onOpenChange(false);
     } catch (error) {
       console.error("Failed to delete video:", error);
       toast.error("Failed to delete video");
@@ -351,7 +327,7 @@ export function VideoDetailDialog({
 
             <div className="space-y-2">
               <Label htmlFor="what-didnt" className="text-red-500">
-                What Didn't Work?
+                What Didn&apos;t Work?
               </Label>
               <Textarea
                 id="what-didnt"

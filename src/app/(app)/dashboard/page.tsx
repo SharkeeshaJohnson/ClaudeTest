@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   Eye,
@@ -16,14 +16,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useAccountStore } from "@/store/account-store";
 import { cn } from "@/lib/utils";
-
-interface Task {
-  id: string;
-  title: string;
-  type: string;
-  dueDate: string;
-  completed: boolean;
-}
+import { taskService, metricsService, streakService } from "@/lib/db/services";
+import type { Task as TaskType } from "@/lib/db";
 
 interface DashboardStats {
   weeklyViews: number;
@@ -35,7 +29,7 @@ interface DashboardStats {
 export default function DashboardPage() {
   const { selectedAccountId, accounts } = useAccountStore();
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<TaskType[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     weeklyViews: 0,
     engagementRate: 0,
@@ -43,43 +37,60 @@ export default function DashboardPage() {
     currentStreak: 0,
   });
 
-  const isAiJourney = selectedAccount?.type === "ai_journey";
-  const themeColor = isAiJourney ? "blue" : "orange";
+  const fetchData = useCallback(async () => {
+    if (!selectedAccountId) return;
 
-  useEffect(() => {
-    // TODO: Fetch actual tasks and stats from API
-    // For now, using placeholder data
-    setTasks([
-      {
-        id: "1",
-        title: "Post daily content",
-        type: "post_video",
-        dueDate: new Date().toISOString(),
-        completed: false,
-      },
-      {
-        id: "2",
-        title: "Update metrics for 'AI Coding Tips'",
-        type: "update_metrics",
-        dueDate: new Date().toISOString(),
-        completed: false,
-      },
-    ]);
+    try {
+      // Fetch tasks
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
 
-    setStats({
-      weeklyViews: 12500,
-      engagementRate: 4.2,
-      followers: 2340,
-      currentStreak: 7,
-    });
+      const tasksData = await taskService.getAll({
+        accountId: selectedAccountId,
+        dueBefore: todayEnd.getTime(),
+      });
+      setTasks(tasksData);
+
+      // Fetch latest metrics
+      const metrics = await metricsService.getAccountMetrics(selectedAccountId, { platform: "tiktok" });
+      const latestMetric = metrics[metrics.length - 1];
+
+      // Fetch streak
+      const streak = await streakService.getByAccountId(selectedAccountId);
+
+      setStats({
+        weeklyViews: latestMetric?.totalViews || 0,
+        engagementRate: latestMetric?.engagementRate || 0,
+        followers: latestMetric?.followers || 0,
+        currentStreak: streak?.currentStreak || 0,
+      });
+    } catch (error) {
+      console.error("Failed to fetch dashboard data:", error);
+    }
   }, [selectedAccountId]);
 
-  const toggleTask = (taskId: string) => {
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === taskId ? { ...task, completed: !task.completed } : task
-      )
-    );
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData();
+  }, [fetchData]);
+
+  const toggleTask = async (taskId: string) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    try {
+      const newStatus = task.status === "completed" ? "pending" : "completed";
+      await taskService.update(taskId, { status: newStatus });
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId ? { ...t, status: newStatus } : t
+        )
+      );
+    } catch (error) {
+      console.error("Failed to update task:", error);
+    }
   };
 
   const statCards = [
@@ -104,12 +115,12 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-subsection text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
             {selectedAccount
               ? `Managing ${selectedAccount.name}`
               : "Select an account to get started"}
@@ -118,10 +129,7 @@ export default function DashboardPage() {
 
         {/* Streak Display */}
         <motion.div
-          className={cn(
-            "flex items-center gap-3 rounded-xl px-6 py-3",
-            isAiJourney ? "bg-blue-500/10" : "bg-orange-500/10"
-          )}
+          className="flex items-center gap-3 rounded-xl px-6 py-3 bg-primary/10"
           animate={{ scale: [1, 1.02, 1] }}
           transition={{ duration: 2, repeat: Infinity }}
         >
@@ -129,12 +137,7 @@ export default function DashboardPage() {
             animate={{ rotate: [0, -10, 10, -10, 0] }}
             transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
           >
-            <Flame
-              className={cn(
-                "h-8 w-8",
-                isAiJourney ? "text-blue-500" : "text-orange-500"
-              )}
-            />
+            <Flame className="h-8 w-8 text-primary" />
           </motion.div>
           <div>
             <p className="text-2xl font-bold">{stats.currentStreak}</p>
@@ -173,7 +176,7 @@ export default function DashboardPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5" />
-            Today's Tasks
+            Today&apos;s Tasks
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -190,25 +193,21 @@ export default function DashboardPage() {
                   animate={{ opacity: 1, x: 0 }}
                   className={cn(
                     "flex items-center gap-3 rounded-lg border p-3 transition-colors",
-                    task.completed
+                    task.status === "completed"
                       ? "bg-muted/50 border-muted"
                       : "hover:bg-accent/50"
                   )}
                 >
                   <Checkbox
-                    checked={task.completed}
+                    checked={task.status === "completed"}
                     onCheckedChange={() => toggleTask(task.id)}
-                    className={cn(
-                      isAiJourney
-                        ? "data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                        : "data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
-                    )}
+                    className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                   />
                   <div className="flex-1">
                     <p
                       className={cn(
                         "font-medium",
-                        task.completed && "line-through text-muted-foreground"
+                        task.status === "completed" && "line-through text-muted-foreground"
                       )}
                     >
                       {task.title}
@@ -217,7 +216,7 @@ export default function DashboardPage() {
                       <Badge variant="secondary" className="text-xs">
                         {task.type === "post_video" ? "Post" : "Metrics"}
                       </Badge>
-                      {!task.completed && new Date(task.dueDate) < new Date() && (
+                      {task.status !== "completed" && task.dueDate && new Date(task.dueDate) < new Date() && (
                         <span className="text-xs text-destructive flex items-center gap-1">
                           <AlertCircle className="h-3 w-3" />
                           Overdue
@@ -225,7 +224,7 @@ export default function DashboardPage() {
                       )}
                     </div>
                   </div>
-                  {task.completed ? (
+                  {task.status === "completed" ? (
                     <CheckCircle2 className="h-5 w-5 text-green-500" />
                   ) : (
                     <Circle className="h-5 w-5 text-muted-foreground" />
@@ -239,15 +238,10 @@ export default function DashboardPage() {
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
+        <Card className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
           <CardContent className="flex items-center gap-4 p-6">
-            <div
-              className={cn(
-                "rounded-full p-3",
-                isAiJourney ? "bg-blue-500/10" : "bg-orange-500/10"
-              )}
-            >
-              <Eye className={cn("h-6 w-6", isAiJourney ? "text-blue-500" : "text-orange-500")} />
+            <div className="rounded-xl p-3 bg-primary/10">
+              <Eye className="h-6 w-6 text-primary" />
             </div>
             <div>
               <h3 className="font-semibold">Generate Content</h3>
@@ -258,15 +252,10 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
+        <Card className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
           <CardContent className="flex items-center gap-4 p-6">
-            <div
-              className={cn(
-                "rounded-full p-3",
-                isAiJourney ? "bg-blue-500/10" : "bg-orange-500/10"
-              )}
-            >
-              <Heart className={cn("h-6 w-6", isAiJourney ? "text-blue-500" : "text-orange-500")} />
+            <div className="rounded-xl p-3 bg-primary/10">
+              <Heart className="h-6 w-6 text-primary" />
             </div>
             <div>
               <h3 className="font-semibold">View Analytics</h3>

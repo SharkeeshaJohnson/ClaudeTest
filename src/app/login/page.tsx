@@ -33,19 +33,20 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-8 p-4">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold tracking-tight">SMCC</h1>
-        <p className="mt-2 text-muted-foreground">
-          Social Media Command Center
+    <div className="flex min-h-screen flex-col items-center justify-center gap-8 p-4 bg-white">
+      <div className="text-center animate-fade-in-up">
+        <h1 className="text-section text-gray-900">Jemma</h1>
+        <p className="mt-3 text-lg text-gray-600">
+          Your AI-Powered Content Studio
         </p>
       </div>
 
       <button
         onClick={login}
-        className="rounded-lg bg-primary px-8 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        className="btn-jemma-primary text-base px-8 py-4 animate-fade-in-up"
+        style={{ animationDelay: "100ms" }}
       >
-        Sign In
+        Get Started
       </button>
     </div>
   );
