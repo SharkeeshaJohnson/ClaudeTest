@@ -16,13 +16,11 @@ function AIChatInner({
   isOpen,
   setIsOpen,
   selectedAccountId,
-  isAiJourney,
   accountName
 }: {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   selectedAccountId: string | null;
-  isAiJourney: boolean;
   accountName: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -104,7 +102,7 @@ function AIChatInner({
                 <div
                   className={cn(
                     "w-8 h-8 rounded-full flex items-center justify-center",
-                    isAiJourney ? "bg-blue-500" : "bg-orange-500"
+                    "bg-primary"
                   )}
                 >
                   <Sparkles className="h-4 w-4 text-white" />
@@ -152,7 +150,7 @@ function AIChatInner({
                       <div
                         className={cn(
                           "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0",
-                          isAiJourney ? "bg-blue-500" : "bg-orange-500"
+                          "bg-primary"
                         )}
                       >
                         <Sparkles className="h-3 w-3 text-white" />
@@ -162,9 +160,7 @@ function AIChatInner({
                       className={cn(
                         "rounded-lg p-3 max-w-[85%]",
                         message.role === "user"
-                          ? isAiJourney
-                            ? "bg-blue-500 text-white"
-                            : "bg-orange-500 text-white"
+                          ? "bg-primary text-white"
                           : "bg-muted"
                       )}
                     >
@@ -188,7 +184,7 @@ function AIChatInner({
                     <div
                       className={cn(
                         "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0",
-                        isAiJourney ? "bg-blue-500" : "bg-orange-500"
+                        "bg-primary"
                       )}
                     >
                       <Sparkles className="h-3 w-3 text-white animate-pulse" />
@@ -245,11 +241,7 @@ function AIChatInner({
                   type="submit"
                   size="icon"
                   disabled={isLoading || !input.trim()}
-                  className={cn(
-                    isAiJourney
-                      ? "bg-blue-500 hover:bg-blue-600"
-                      : "bg-orange-500 hover:bg-orange-600"
-                  )}
+                  className="bg-primary hover:bg-primary/90"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
@@ -268,8 +260,6 @@ export function AIChat() {
   const { selectedAccountId, accounts } = useAccountStore();
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
 
-  const isAiJourney = selectedAccount?.type === "ai_journey";
-
   // Don't render anything until Privy is ready and user is authenticated
   if (!ready || !authenticated) {
     return null;
@@ -280,12 +270,7 @@ export function AIChat() {
       {/* Floating button */}
       <motion.button
         onClick={() => setIsOpen(true)}
-        className={cn(
-          "fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg hover:shadow-xl transition-shadow",
-          isAiJourney
-            ? "bg-blue-500 hover:bg-blue-600"
-            : "bg-orange-500 hover:bg-orange-600"
-        )}
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg hover:shadow-xl transition-shadow bg-primary hover:bg-primary/90"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         initial={false}
@@ -302,7 +287,6 @@ export function AIChat() {
         isOpen={isOpen}
         setIsOpen={setIsOpen}
         selectedAccountId={selectedAccountId}
-        isAiJourney={isAiJourney}
         accountName={selectedAccount?.name || ""}
       />
     </>

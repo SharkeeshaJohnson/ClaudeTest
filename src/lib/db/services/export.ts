@@ -12,9 +12,10 @@ export interface ExportData {
   exportedAt: number;
   account: {
     name: string;
-    type: string;
     platforms: string[];
-    nicheKeywords: string[];
+    tiktokUsername: string | null;
+    instagramUsername: string | null;
+    initialMetrics?: Account["initialMetrics"];
   };
   videos: Array<{
     title: string;
@@ -83,9 +84,10 @@ export const exportService = {
       exportedAt: Date.now(),
       account: {
         name: account.name,
-        type: account.type,
         platforms: account.platforms,
-        nicheKeywords: account.nicheKeywords,
+        tiktokUsername: account.tiktokUsername,
+        instagramUsername: account.instagramUsername,
+        initialMetrics: account.initialMetrics,
       },
       videos: videos.map((v) => ({
         title: v.title,

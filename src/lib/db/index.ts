@@ -7,9 +7,24 @@ import Dexie, { type EntityTable } from "dexie";
 export interface Account {
   id: string;
   name: string;
-  type: "ai_journey" | "dog_content";
-  platforms: string[];
-  nicheKeywords: string[];
+  platforms: ("tiktok" | "instagram")[];
+  tiktokUsername: string | null;
+  instagramUsername: string | null;
+  // Initial metrics fetched during onboarding
+  initialMetrics?: {
+    tiktok?: {
+      followers: number;
+      totalLikes: number;
+      totalVideos: number;
+      bio?: string;
+    };
+    instagram?: {
+      followers: number;
+      following: number;
+      posts: number;
+      bio?: string;
+    };
+  };
   createdAt: number; // timestamp
 }
 
@@ -133,6 +148,15 @@ export interface UserSettings {
   updatedAt: number;
 }
 
+export interface AccountProfile {
+  id: string;
+  accountId: string;
+  hashtags: string[]; // User's relevant hashtags
+  keywords: string[]; // User's relevant keywords
+  rules: string[]; // User's rules/facts about their account (like claude.md)
+  updatedAt: number;
+}
+
 // ============================================================================
 // Database Class
 // ============================================================================
@@ -149,6 +173,7 @@ class SMCCDatabase extends Dexie {
   trendReports!: EntityTable<TrendReport, "id">;
   conversations!: EntityTable<Conversation, "id">;
   userSettings!: EntityTable<UserSettings, "id">;
+  accountProfiles!: EntityTable<AccountProfile, "id">;
 
   constructor() {
     super("smcc-db");
@@ -166,6 +191,21 @@ class SMCCDatabase extends Dexie {
       trendReports: "id, accountId, provider, generatedAt",
       conversations: "id, accountId, createdAt",
       userSettings: "id",
+    });
+
+    this.version(2).stores({
+      accounts: "id, name, type, createdAt",
+      videos: "id, accountId, status, scheduledDate, postedDate, createdAt",
+      videoMetrics: "id, videoId, platform, recordedAt",
+      accountMetrics: "id, accountId, platform, recordedAt",
+      ideas: "id, accountId, status, priority, createdAt",
+      tasks: "id, accountId, status, type, dueDate, createdAt",
+      streaks: "id, &accountId",
+      videoNotes: "id, &videoId",
+      trendReports: "id, accountId, provider, generatedAt",
+      conversations: "id, accountId, createdAt",
+      userSettings: "id",
+      accountProfiles: "id, &accountId", // unique index on accountId
     });
   }
 }

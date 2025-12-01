@@ -64,7 +64,6 @@ export default function IdeasPage() {
   const [editingIdea, setEditingIdea] = useState<Idea | null>(null);
 
   const { extractFromIdea } = useMemoryExtractor();
-  const isAiJourney = selectedAccount?.type === "ai_journey";
 
   const fetchIdeas = useCallback(async () => {
     if (!selectedAccountId) return;
@@ -144,9 +143,7 @@ export default function IdeasPage() {
         className={cn(
           "h-3 w-3",
           i < priority
-            ? isAiJourney
-              ? "fill-blue-500 text-blue-500"
-              : "fill-orange-500 text-orange-500"
+            ? "fill-primary text-primary"
             : "text-muted-foreground"
         )}
       />
@@ -241,11 +238,7 @@ export default function IdeasPage() {
             </p>
             <Button
               onClick={() => setIsDialogOpen(true)}
-              className={cn(
-                isAiJourney
-                  ? "bg-blue-500 hover:bg-blue-600"
-                  : "bg-orange-500 hover:bg-orange-600"
-              )}
+              className="bg-primary hover:bg-primary/90"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Your First Idea

@@ -58,7 +58,6 @@ export default function CalendarPage() {
   const [selectedVideo, setSelectedVideo] = useState<VideoType | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
 
-  const isAiJourney = selectedAccount?.type === "ai_journey";
 
   const fetchVideos = useCallback(async () => {
     if (!selectedAccountId) return;
@@ -227,8 +226,7 @@ export default function CalendarPage() {
                   <div
                     className={cn(
                       "w-7 h-7 flex items-center justify-center rounded-full text-sm",
-                      isToday &&
-                        (isAiJourney ? "bg-blue-500 text-white" : "bg-orange-500 text-white")
+                      isToday && "bg-primary text-white"
                     )}
                   >
                     {format(day, "d")}

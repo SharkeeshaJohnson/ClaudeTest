@@ -4,17 +4,22 @@ import { db, generateId, now, type Account, type Streak } from "../index";
 // Account Service
 // ============================================================================
 
+export type SocialPlatform = "tiktok" | "instagram";
+
 export interface CreateAccountInput {
   name: string;
-  type: "ai_journey" | "dog_content";
-  platforms?: string[];
-  nicheKeywords?: string[];
+  platforms: SocialPlatform[];
+  tiktokUsername?: string | null;
+  instagramUsername?: string | null;
+  initialMetrics?: Account["initialMetrics"];
 }
 
 export interface UpdateAccountInput {
   name?: string;
-  platforms?: string[];
-  nicheKeywords?: string[];
+  platforms?: SocialPlatform[];
+  tiktokUsername?: string | null;
+  instagramUsername?: string | null;
+  initialMetrics?: Account["initialMetrics"];
 }
 
 export const accountService = {
@@ -67,9 +72,10 @@ export const accountService = {
     const account: Account = {
       id,
       name: input.name,
-      type: input.type,
-      platforms: input.platforms || [],
-      nicheKeywords: input.nicheKeywords || [],
+      platforms: input.platforms,
+      tiktokUsername: input.tiktokUsername || null,
+      instagramUsername: input.instagramUsername || null,
+      initialMetrics: input.initialMetrics,
       createdAt: timestamp,
     };
 
@@ -102,7 +108,9 @@ export const accountService = {
     const updates: Partial<Account> = {};
     if (input.name !== undefined) updates.name = input.name;
     if (input.platforms !== undefined) updates.platforms = input.platforms;
-    if (input.nicheKeywords !== undefined) updates.nicheKeywords = input.nicheKeywords;
+    if (input.tiktokUsername !== undefined) updates.tiktokUsername = input.tiktokUsername;
+    if (input.instagramUsername !== undefined) updates.instagramUsername = input.instagramUsername;
+    if (input.initialMetrics !== undefined) updates.initialMetrics = input.initialMetrics;
 
     await db.accounts.update(id, updates);
     return { ...existing, ...updates };

@@ -7,7 +7,7 @@ import { accountService } from "@/lib/db/services";
 // Types
 // ============================================================================
 
-export type AccountType = "ai_journey" | "dog_content";
+export type SocialPlatform = "tiktok" | "instagram";
 
 interface AccountState {
   accounts: Account[];
@@ -19,16 +19,19 @@ interface AccountState {
   loadAccounts: () => Promise<void>;
   createAccount: (input: {
     name: string;
-    type: AccountType;
-    platforms?: string[];
-    nicheKeywords?: string[];
+    platforms: SocialPlatform[];
+    tiktokUsername?: string | null;
+    instagramUsername?: string | null;
+    initialMetrics?: Account["initialMetrics"];
   }) => Promise<Account>;
   updateAccount: (
     id: string,
     input: {
       name?: string;
-      platforms?: string[];
-      nicheKeywords?: string[];
+      platforms?: SocialPlatform[];
+      tiktokUsername?: string | null;
+      instagramUsername?: string | null;
+      initialMetrics?: Account["initialMetrics"];
     }
   ) => Promise<Account | null>;
   deleteAccount: (id: string) => Promise<boolean>;

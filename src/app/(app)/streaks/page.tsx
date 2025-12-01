@@ -49,8 +49,8 @@ export default function StreaksPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showConfetti, setShowConfetti] = useState(false);
 
-  const isAiJourney = selectedAccount?.type === "ai_journey";
-  const themeColor = isAiJourney ? "blue" : "orange";
+  // Use consistent primary theme color
+  const themeColor = "primary";
 
   const fetchData = useCallback(async () => {
     if (!selectedAccountId) return;
@@ -207,21 +207,14 @@ export default function StreaksPage() {
                   }}
                   transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
                 >
-                  <Flame
-                    className={cn(
-                      "h-16 w-16",
-                      isAiJourney ? "text-blue-500" : "text-orange-500"
-                    )}
-                  />
+                  <Flame className="h-16 w-16 text-primary" />
                 </motion.div>
               </div>
               <Button
                 onClick={handleCheckIn}
                 className={cn(
                   "w-full mt-4",
-                  isAiJourney
-                    ? "bg-blue-500 hover:bg-blue-600"
-                    : "bg-orange-500 hover:bg-orange-600"
+                  "bg-primary hover:bg-primary/90"
                 )}
               >
                 <Zap className="h-4 w-4 mr-2" />
@@ -283,7 +276,7 @@ export default function StreaksPage() {
                   <motion.div
                     className={cn(
                       "h-full",
-                      isAiJourney ? "bg-blue-500" : "bg-orange-500"
+                      "bg-primary"
                     )}
                     initial={{ width: 0 }}
                     animate={{ width: `${xpProgress * 100}%` }}
@@ -314,11 +307,7 @@ export default function StreaksPage() {
                 transition={{ delay: idx * 0.005 }}
                 className={cn(
                   "w-3 h-3 rounded-sm cursor-pointer",
-                  hasPost
-                    ? isAiJourney
-                      ? "bg-blue-500"
-                      : "bg-orange-500"
-                    : "bg-muted"
+                  hasPost ? "bg-primary" : "bg-muted"
                 )}
                 title={`${format(date, "MMM d, yyyy")}${hasPost ? " - Posted" : ""}`}
               />
@@ -330,7 +319,7 @@ export default function StreaksPage() {
             <div
               className={cn(
                 "w-3 h-3 rounded-sm",
-                isAiJourney ? "bg-blue-500" : "bg-orange-500"
+                "bg-primary"
               )}
             />
             <span>More</span>

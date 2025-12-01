@@ -53,8 +53,8 @@ export default function AnalyticsPage() {
   const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<VideoWithMetrics | null>(null);
 
-  const isAiJourney = selectedAccount?.type === "ai_journey";
-  const themeColor = isAiJourney ? "#3B82F6" : "#F97316";
+  // Theme color for charts
+  const themeColor = "#6366f1"; // Primary indigo color
 
   const fetchData = useCallback(async () => {
     if (!selectedAccountId) return;

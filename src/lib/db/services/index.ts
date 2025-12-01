@@ -10,6 +10,7 @@ export { trendReportService } from "./trends";
 export { conversationService } from "./conversations";
 export { settingsService } from "./settings";
 export { exportService } from "./export";
+export { profileService } from "./profile";
 
 // Aliases for convenience
 import { videoNoteService } from "./notes";

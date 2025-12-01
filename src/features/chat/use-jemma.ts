@@ -117,9 +117,10 @@ async function buildJemmaContext(accountId?: string): Promise<JemmaContext> {
   // Build account data
   const accountData = JSON.stringify({
     name: account.name,
-    type: account.type,
     platforms: account.platforms,
-    nicheKeywords: account.nicheKeywords,
+    tiktokUsername: account.tiktokUsername,
+    instagramUsername: account.instagramUsername,
+    initialMetrics: account.initialMetrics,
     streak: {
       current: streak.currentStreak,
       longest: streak.longestStreak,

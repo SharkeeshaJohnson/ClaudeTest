@@ -38,12 +38,13 @@ const durationOptions = [
   { value: "60", label: "60 seconds", description: "In-depth story" },
 ];
 
-const AI_JOURNEY_PROMPT = `You are a social media content strategist specializing in AI/tech content for TikTok and Instagram Reels.
+const CONTENT_PROMPT = `You are a social media content strategist specializing in short-form video content for TikTok and Instagram Reels.
 
 Create a complete video content package based on the following details:
 - Topic: {topic}
 - Duration: {duration} seconds
 - Tone: {tone}
+- Platform: {platforms}
 
 Generate the following in a structured format:
 
@@ -69,38 +70,6 @@ An engaging caption for the post.
 
 Keep the content authentic, relatable, and optimized for short-form video engagement.`;
 
-const DOG_CONTENT_PROMPT = `You are a pet content strategist specializing in viral dog content for TikTok and Instagram Reels.
-
-Create a complete video content package based on the following details:
-- Theme: {topic}
-- Duration: {duration} seconds
-- Tone: {tone}
-
-Generate the following in a structured format:
-
-## Hook (First 3 seconds)
-A cute/funny opening that immediately captures attention.
-
-## Filming Idea
-Describe exactly what to capture - scenarios, reactions, moments to look for.
-
-## Setup Instructions
-How to set up the shot, what props to use, lighting tips.
-
-## Suggested Audio
-Trending sounds or music that would work well with this content.
-
-## Caption
-An engaging caption that connects with pet lovers.
-
-## Hashtags
-10 viral pet hashtags for maximum reach.
-
-## Pro Tips
-Extra tips for capturing the best moments with your pet.
-
-Focus on authentic, heartwarming, or funny content that resonates with pet lovers.`;
-
 export default function ContentStudioPage() {
   const { selectedAccountId, accounts } = useAccountStore();
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
@@ -112,7 +81,8 @@ export default function ContentStudioPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState("");
 
-  const isAiJourney = selectedAccount?.type === "ai_journey";
+  // Get platforms for the prompt context
+  const platformsText = selectedAccount?.platforms?.join(" and ") || "TikTok/Instagram";
 
   const handleGenerate = useCallback(async () => {
     if (!selectedAccountId) {
@@ -134,11 +104,11 @@ export default function ContentStudioPage() {
 
       // Build the prompt
       const bodyDuration = parseInt(duration) - 8;
-      const basePrompt = isAiJourney ? AI_JOURNEY_PROMPT : DOG_CONTENT_PROMPT;
-      const prompt = basePrompt
+      const prompt = CONTENT_PROMPT
         .replace("{topic}", topic)
         .replace("{duration}", duration)
         .replace("{tone}", tone)
+        .replace("{platforms}", platformsText)
         .replace("{bodyDuration}", bodyDuration.toString());
 
       // Get identity token
@@ -218,7 +188,7 @@ export default function ContentStudioPage() {
     } finally {
       setIsGenerating(false);
     }
-  }, [selectedAccountId, topic, duration, tone, isAiJourney, identityToken]);
+  }, [selectedAccountId, topic, duration, tone, platformsText, identityToken]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(generatedContent);
@@ -288,18 +258,12 @@ export default function ContentStudioPage() {
           <CardContent className="space-y-6">
             {/* Topic Input */}
             <div className="space-y-2">
-              <Label htmlFor="topic">
-                {isAiJourney ? "Topic / Theme" : "Video Idea / Theme"}
-              </Label>
+              <Label htmlFor="topic">Topic / Theme</Label>
               <Textarea
                 id="topic"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                placeholder={
-                  isAiJourney
-                    ? "e.g., How I built my first app with AI in 2 hours..."
-                    : "e.g., My dog's reaction when I pretend to throw the ball..."
-                }
+                placeholder="e.g., Morning routine, product review, day in my life..."
                 rows={3}
               />
             </div>
@@ -479,58 +443,28 @@ export default function ContentStudioPage() {
       {/* Quick Tips */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">
-            {isAiJourney ? "AI Journey Content Tips" : "Dog Content Tips"}
-          </CardTitle>
+          <CardTitle className="text-sm">Content Creation Tips</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
-            {isAiJourney ? (
-              <>
-                <div className="space-y-1">
-                  <Badge variant="secondary">Hook Ideas</Badge>
-                  <p className="text-xs text-muted-foreground">
-                    &quot;I just built X in Y minutes with AI&quot; or &quot;This AI tool
-                    changed everything&quot;
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <Badge variant="secondary">Popular Topics</Badge>
-                  <p className="text-xs text-muted-foreground">
-                    Tutorials, before/after, tool comparisons, learning journey
-                    updates
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <Badge variant="secondary">Best Times</Badge>
-                  <p className="text-xs text-muted-foreground">
-                    Tech content performs well during morning commutes and lunch
-                    breaks
-                  </p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="space-y-1">
-                  <Badge variant="secondary">Viral Formats</Badge>
-                  <p className="text-xs text-muted-foreground">
-                    Reactions, fails, sleeping positions, talking dog voiceovers
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <Badge variant="secondary">Trending Sounds</Badge>
-                  <p className="text-xs text-muted-foreground">
-                    Check TikTok&apos;s sound library for trending pet-related audios
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <Badge variant="secondary">Best Times</Badge>
-                  <p className="text-xs text-muted-foreground">
-                    Evening hours when people are relaxing with their own pets
-                  </p>
-                </div>
-              </>
-            )}
+            <div className="space-y-1">
+              <Badge variant="secondary">Hook Ideas</Badge>
+              <p className="text-xs text-muted-foreground">
+                Start with a question, bold statement, or visual that stops the scroll
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Badge variant="secondary">Popular Formats</Badge>
+              <p className="text-xs text-muted-foreground">
+                Tutorials, day-in-life, reactions, before/after, storytimes
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Badge variant="secondary">Best Practices</Badge>
+              <p className="text-xs text-muted-foreground">
+                Post consistently, use trending sounds, engage with your audience
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

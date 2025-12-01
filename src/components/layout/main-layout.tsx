@@ -60,9 +60,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     init();
   }, [privyReady, authenticated, dataReady, loadAccounts, router]);
 
-  const themeClass = selectedAccount?.type === "dog_content"
-    ? "theme-dog-content"
-    : "theme-ai-journey";
+  // No more account type themes - use consistent primary theme
 
   // Show loading while initializing
   if (isInitializing) {
@@ -91,7 +89,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   }
 
   return (
-    <div className={cn("min-h-screen bg-background", themeClass)}>
+    <div className="min-h-screen bg-background">
       <Sidebar />
       <main className="ml-64 min-h-screen">
         <div className="p-6">{children}</div>

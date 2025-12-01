@@ -28,16 +28,25 @@ export interface ModelInfo {
   speedTier: "fast" | "medium" | "slow";
 }
 
-// Available models through Portal API
+// Available models through Portal API (updated from models.json)
 export const AVAILABLE_MODELS: Record<string, ModelInfo> = {
-  "anthropic/claude-3-5-sonnet-20241022": {
-    id: "anthropic/claude-3-5-sonnet-20241022",
-    name: "Claude 3.5 Sonnet",
+  "anthropic/claude-sonnet-4-5-20250929": {
+    id: "anthropic/claude-sonnet-4-5-20250929",
+    name: "Claude Sonnet 4.5",
     provider: "Anthropic",
     description: "Best for creative writing and conversational AI",
     strengths: ["Creative writing", "Nuanced tone", "Instruction following"],
     costTier: "medium",
     speedTier: "medium",
+  },
+  "anthropic/claude-3-5-haiku-20241022": {
+    id: "anthropic/claude-3-5-haiku-20241022",
+    name: "Claude Haiku 3.5",
+    provider: "Anthropic",
+    description: "Fast and efficient for quick tasks",
+    strengths: ["Fast", "Cost-effective", "Good for short content"],
+    costTier: "low",
+    speedTier: "fast",
   },
   "openai/gpt-4o": {
     id: "openai/gpt-4o",
@@ -57,13 +66,31 @@ export const AVAILABLE_MODELS: Record<string, ModelInfo> = {
     costTier: "low",
     speedTier: "fast",
   },
-  "google/gemini-1.5-pro": {
-    id: "google/gemini-1.5-pro",
-    name: "Gemini 1.5 Pro",
-    provider: "Google",
-    description: "Large context window, good for trend analysis",
-    strengths: ["Large context", "Trend analysis", "Multimodal"],
+  "grok/grok-3": {
+    id: "grok/grok-3",
+    name: "Grok 3",
+    provider: "xAI",
+    description: "Powerful reasoning and analysis",
+    strengths: ["Reasoning", "Analysis", "Fast responses"],
     costTier: "medium",
+    speedTier: "fast",
+  },
+  "fireworks/accounts/fireworks/models/deepseek-v3-0324": {
+    id: "fireworks/accounts/fireworks/models/deepseek-v3-0324",
+    name: "DeepSeek V3",
+    provider: "DeepSeek",
+    description: "Large context window, good for trend analysis",
+    strengths: ["Large context", "Trend analysis", "Cost-effective"],
+    costTier: "low",
+    speedTier: "medium",
+  },
+  "fireworks/accounts/fireworks/models/llama-v3p3-70b-instruct": {
+    id: "fireworks/accounts/fireworks/models/llama-v3p3-70b-instruct",
+    name: "Llama 3.3 70B",
+    provider: "Meta",
+    description: "Open source model with strong capabilities",
+    strengths: ["Open source", "Good reasoning", "Cost-effective"],
+    costTier: "low",
     speedTier: "medium",
   },
   "openai/text-embedding-3-small": {
@@ -79,9 +106,9 @@ export const AVAILABLE_MODELS: Record<string, ModelInfo> = {
 
 // Default model selections by task type
 export const DEFAULT_MODELS: Record<TaskType, string> = {
-  creative: "anthropic/claude-3-5-sonnet-20241022",
+  creative: "anthropic/claude-sonnet-4-5-20250929",
   analysis: "openai/gpt-4o",
-  chat: "anthropic/claude-3-5-sonnet-20241022",
+  chat: "anthropic/claude-sonnet-4-5-20250929",
   memory: "openai/gpt-4o-mini",
   embedding: "openai/text-embedding-3-small",
 };
@@ -89,19 +116,21 @@ export const DEFAULT_MODELS: Record<TaskType, string> = {
 // Models available for user selection by task type
 export const SELECTABLE_MODELS: Record<TaskType, string[]> = {
   creative: [
-    "anthropic/claude-3-5-sonnet-20241022",
+    "anthropic/claude-sonnet-4-5-20250929",
     "openai/gpt-4o",
     "openai/gpt-4o-mini",
+    "grok/grok-3",
   ],
   analysis: [
     "openai/gpt-4o",
-    "anthropic/claude-3-5-sonnet-20241022",
-    "google/gemini-1.5-pro",
+    "anthropic/claude-sonnet-4-5-20250929",
+    "fireworks/accounts/fireworks/models/deepseek-v3-0324",
   ],
   chat: [
-    "anthropic/claude-3-5-sonnet-20241022",
+    "anthropic/claude-sonnet-4-5-20250929",
     "openai/gpt-4o",
     "openai/gpt-4o-mini",
+    "grok/grok-3",
   ],
   memory: ["openai/gpt-4o-mini"], // Not user-selectable, runs in background
   embedding: ["openai/text-embedding-3-small"], // Not user-selectable

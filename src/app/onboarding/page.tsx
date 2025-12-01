@@ -4,102 +4,76 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Bot,
-  Dog,
   Instagram,
   ArrowRight,
   ArrowLeft,
   Check,
   Loader2,
   AlertCircle,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useAccountStore, type AccountType } from "@/store/account-store";
+import { useAccountStore, type SocialPlatform } from "@/store/account-store";
 import { cn } from "@/lib/utils";
+import { useIdentityToken } from "@privy-io/react-auth";
+import type { Account } from "@/lib/db";
 
 // TikTok icon component
 function TikTokIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-    >
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
       <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
     </svg>
   );
 }
 
-const accountTypes = [
-  {
-    type: "ai_journey" as AccountType,
-    title: "AI Journey",
-    description: "Tech content about learning and building with AI",
-    icon: Bot,
-    color: "blue",
-    examples: ["AI tutorials", "Tech reviews", "Learning journey"],
-  },
-  {
-    type: "dog_content" as AccountType,
-    title: "Dog Content",
-    description: "Cute and funny pet content",
-    icon: Dog,
-    color: "orange",
-    examples: ["Pet reactions", "Training tips", "Daily adventures"],
-  },
-];
-
 const platforms = [
   {
-    id: "tiktok",
+    id: "tiktok" as SocialPlatform,
     name: "TikTok",
     icon: TikTokIcon,
-    placeholder: "@username or profile URL",
-    pattern: /^(@?[\w.]+|https?:\/\/(www\.)?tiktok\.com\/@[\w.]+)/,
+    color: "bg-black",
+    description: "Short-form video content",
   },
   {
-    id: "instagram",
+    id: "instagram" as SocialPlatform,
     name: "Instagram",
     icon: Instagram,
-    placeholder: "@username or profile URL",
-    pattern: /^(@?[\w.]+|https?:\/\/(www\.)?instagram\.com\/[\w.]+)/,
+    color: "bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400",
+    description: "Reels, posts, and stories",
   },
 ];
 
-type Step = "account-type" | "platform" | "username" | "creating";
+type Step = "platforms" | "usernames" | "fetching" | "creating";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const createAccount = useAccountStore((state) => state.createAccount);
   const loadAccounts = useAccountStore((state) => state.loadAccounts);
+  const { identityToken } = useIdentityToken();
 
-  const [step, setStep] = useState<Step>("account-type");
-  const [selectedType, setSelectedType] = useState<AccountType | null>(null);
-  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
-  const [username, setUsername] = useState("");
+  const [step, setStep] = useState<Step>("platforms");
+  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>([]);
+  const [tiktokUsername, setTiktokUsername] = useState("");
+  const [instagramUsername, setInstagramUsername] = useState("");
   const [accountName, setAccountName] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const selectedTypeInfo = accountTypes.find((t) => t.type === selectedType);
-  const selectedPlatformInfo = platforms.find((p) => p.id === selectedPlatform);
+  const [fetchProgress, setFetchProgress] = useState<string>("");
 
   // Extract clean username from input
-  const extractUsername = (input: string): string => {
-    // Remove @ prefix if present
+  const extractUsername = (input: string, platform: SocialPlatform): string => {
     let clean = input.trim().replace(/^@/, "");
 
-    // Extract from TikTok URL
-    if (clean.includes("tiktok.com/@")) {
+    if (platform === "tiktok" && clean.includes("tiktok.com/@")) {
       const match = clean.match(/tiktok\.com\/@([\w.]+)/);
       if (match) clean = match[1];
     }
 
-    // Extract from Instagram URL
-    if (clean.includes("instagram.com/")) {
+    if (platform === "instagram" && clean.includes("instagram.com/")) {
       const match = clean.match(/instagram\.com\/([\w.]+)/);
       if (match) clean = match[1];
     }
@@ -107,22 +81,95 @@ export default function OnboardingPage() {
     return clean;
   };
 
-  const handleCreateAccount = async () => {
-    if (!selectedType || !selectedPlatform) return;
+  const togglePlatform = (platformId: SocialPlatform) => {
+    setSelectedPlatforms((prev) =>
+      prev.includes(platformId)
+        ? prev.filter((p) => p !== platformId)
+        : [...prev, platformId]
+    );
+  };
 
-    setIsCreating(true);
-    setError(null);
-    setStep("creating");
+  const fetchProfileData = async (): Promise<Account["initialMetrics"] | undefined> => {
+    if (!identityToken) {
+      throw new Error("Not authenticated");
+    }
+
+    const cleanTiktok = selectedPlatforms.includes("tiktok")
+      ? extractUsername(tiktokUsername, "tiktok")
+      : null;
+    const cleanInstagram = selectedPlatforms.includes("instagram")
+      ? extractUsername(instagramUsername, "instagram")
+      : null;
+
+    setFetchProgress("Looking up your profile data...");
 
     try {
-      const cleanUsername = extractUsername(username);
-      const name = accountName.trim() || `${selectedTypeInfo?.title} - @${cleanUsername}`;
+      const response = await fetch("/api/profile-lookup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${identityToken}`,
+        },
+        body: JSON.stringify({
+          tiktokUsername: cleanTiktok,
+          instagramUsername: cleanInstagram,
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn("Profile lookup failed, continuing without initial metrics");
+        return undefined;
+      }
+
+      const data = await response.json();
+      setFetchProgress("Profile data retrieved!");
+
+      const initialMetrics: Account["initialMetrics"] = {};
+      if (data.tiktok) initialMetrics.tiktok = data.tiktok;
+      if (data.instagram) initialMetrics.instagram = data.instagram;
+
+      return Object.keys(initialMetrics).length > 0 ? initialMetrics : undefined;
+    } catch (error) {
+      console.warn("Profile lookup error:", error);
+      return undefined;
+    }
+  };
+
+  const handleCreateAccount = async () => {
+    if (selectedPlatforms.length === 0) return;
+
+    setIsProcessing(true);
+    setError(null);
+    setStep("fetching");
+
+    try {
+      // Fetch profile data before creating account
+      const initialMetrics = await fetchProfileData();
+
+      setStep("creating");
+      setFetchProgress("Setting up your account...");
+
+      const cleanTiktok = selectedPlatforms.includes("tiktok")
+        ? extractUsername(tiktokUsername, "tiktok")
+        : null;
+      const cleanInstagram = selectedPlatforms.includes("instagram")
+        ? extractUsername(instagramUsername, "instagram")
+        : null;
+
+      // Generate account name if not provided
+      const name =
+        accountName.trim() ||
+        [cleanTiktok && `@${cleanTiktok}`, cleanInstagram && `@${cleanInstagram}`]
+          .filter(Boolean)
+          .join(" / ") ||
+        "My Account";
 
       await createAccount({
         name,
-        type: selectedType,
-        platforms: [selectedPlatform],
-        nicheKeywords: selectedTypeInfo?.examples || [],
+        platforms: selectedPlatforms,
+        tiktokUsername: cleanTiktok,
+        instagramUsername: cleanInstagram,
+        initialMetrics,
       });
 
       // Reload accounts to get the new one
@@ -133,34 +180,26 @@ export default function OnboardingPage() {
     } catch (err) {
       console.error("Failed to create account:", err);
       setError("Failed to create account. Please try again.");
-      setStep("username");
+      setStep("usernames");
     } finally {
-      setIsCreating(false);
+      setIsProcessing(false);
     }
   };
 
-  const canProceed = () => {
-    switch (step) {
-      case "account-type":
-        return selectedType !== null;
-      case "platform":
-        return selectedPlatform !== null;
-      case "username":
-        return username.trim().length > 0;
-      default:
-        return false;
-    }
+  const canProceedPlatforms = selectedPlatforms.length > 0;
+
+  const canProceedUsernames = () => {
+    if (selectedPlatforms.includes("tiktok") && !tiktokUsername.trim()) return false;
+    if (selectedPlatforms.includes("instagram") && !instagramUsername.trim()) return false;
+    return true;
   };
 
   const goNext = () => {
     switch (step) {
-      case "account-type":
-        setStep("platform");
+      case "platforms":
+        setStep("usernames");
         break;
-      case "platform":
-        setStep("username");
-        break;
-      case "username":
+      case "usernames":
         handleCreateAccount();
         break;
     }
@@ -168,16 +207,13 @@ export default function OnboardingPage() {
 
   const goBack = () => {
     switch (step) {
-      case "platform":
-        setStep("account-type");
-        break;
-      case "username":
-        setStep("platform");
+      case "usernames":
+        setStep("platforms");
         break;
     }
   };
 
-  const stepNumber = step === "account-type" ? 1 : step === "platform" ? 2 : step === "username" ? 3 : 3;
+  const stepNumber = step === "platforms" ? 1 : step === "usernames" ? 2 : 2;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/30">
@@ -185,7 +221,7 @@ export default function OnboardingPage() {
         {/* Progress indicator */}
         <div className="flex justify-center mb-8">
           <div className="flex items-center gap-2">
-            {[1, 2, 3].map((num) => (
+            {[1, 2].map((num) => (
               <div key={num} className="flex items-center">
                 <div
                   className={cn(
@@ -197,10 +233,10 @@ export default function OnboardingPage() {
                 >
                   {stepNumber > num ? <Check className="h-4 w-4" /> : num}
                 </div>
-                {num < 3 && (
+                {num < 2 && (
                   <div
                     className={cn(
-                      "w-12 h-0.5 mx-1",
+                      "w-16 h-0.5 mx-2",
                       stepNumber > num ? "bg-primary" : "bg-muted"
                     )}
                   />
@@ -211,10 +247,10 @@ export default function OnboardingPage() {
         </div>
 
         <AnimatePresence mode="wait">
-          {/* Step 1: Account Type */}
-          {step === "account-type" && (
+          {/* Step 1: Platform Selection */}
+          {step === "platforms" && (
             <motion.div
-              key="account-type"
+              key="platforms"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -223,102 +259,53 @@ export default function OnboardingPage() {
                 <CardHeader className="text-center">
                   <CardTitle className="text-subsection">Welcome to Jemma!</CardTitle>
                   <CardDescription className="text-base mt-2">
-                    What type of content do you create?
+                    Select the social media platforms you use
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {accountTypes.map((type) => (
-                      <motion.button
-                        key={type.type}
-                        onClick={() => setSelectedType(type.type)}
-                        className={cn(
-                          "p-6 rounded-xl border-2 text-left transition-all",
-                          selectedType === type.type
-                            ? "border-primary bg-primary/10"
-                            : "border-border hover:border-primary/50"
-                        )}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <type.icon className="h-10 w-10 mb-3 text-primary" />
-                        <h3 className="font-semibold text-lg">{type.title}</h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {type.description}
-                        </p>
-                        <div className="flex flex-wrap gap-1 mt-3">
-                          {type.examples.map((ex) => (
-                            <span
-                              key={ex}
-                              className="text-xs px-2 py-0.5 bg-muted rounded-full"
-                            >
-                              {ex}
-                            </span>
-                          ))}
-                        </div>
-                      </motion.button>
-                    ))}
-                  </div>
+                  <p className="text-sm text-muted-foreground text-center mb-6">
+                    Choose at least one platform to get started. You can add more later.
+                  </p>
 
-                  <div className="flex justify-end pt-4">
-                    <Button
-                      onClick={goNext}
-                      disabled={!canProceed()}
-                      className="bg-primary hover:bg-primary/90"
-                    >
-                      Continue
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {/* Step 2: Platform Selection */}
-          {step === "platform" && (
-            <motion.div
-              key="platform"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <Card>
-                <CardHeader className="text-center">
-                  <CardTitle className="text-2xl">Choose Your Platform</CardTitle>
-                  <CardDescription>
-                    Which platform is your primary focus?
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
                     {platforms.map((platform) => (
                       <motion.button
                         key={platform.id}
-                        onClick={() => setSelectedPlatform(platform.id)}
+                        onClick={() => togglePlatform(platform.id)}
                         className={cn(
-                          "p-6 rounded-xl border-2 text-center transition-all",
-                          selectedPlatform === platform.id
+                          "p-6 rounded-xl border-2 text-center transition-all relative overflow-hidden",
+                          selectedPlatforms.includes(platform.id)
                             ? "border-primary bg-primary/10"
                             : "border-border hover:border-primary/50"
                         )}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                       >
-                        <platform.icon className="h-12 w-12 mx-auto mb-3 text-foreground" />
+                        {selectedPlatforms.includes(platform.id) && (
+                          <div className="absolute top-2 right-2">
+                            <Check className="h-5 w-5 text-primary" />
+                          </div>
+                        )}
+                        <div
+                          className={cn(
+                            "w-16 h-16 rounded-xl mx-auto mb-4 flex items-center justify-center text-white",
+                            platform.color
+                          )}
+                        >
+                          <platform.icon className="h-8 w-8" />
+                        </div>
                         <h3 className="font-semibold text-lg">{platform.name}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {platform.description}
+                        </p>
                       </motion.button>
                     ))}
                   </div>
 
-                  <div className="flex justify-between pt-4">
-                    <Button variant="outline" onClick={goBack}>
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back
-                    </Button>
+                  <div className="flex justify-end pt-6">
                     <Button
                       onClick={goNext}
-                      disabled={!canProceed()}
+                      disabled={!canProceedPlatforms}
                       className="bg-primary hover:bg-primary/90"
                     >
                       Continue
@@ -330,19 +317,19 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {/* Step 3: Username */}
-          {step === "username" && (
+          {/* Step 2: Username Entry */}
+          {step === "usernames" && (
             <motion.div
-              key="username"
+              key="usernames"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
               <Card>
                 <CardHeader className="text-center">
-                  <CardTitle className="text-2xl">Connect Your Account</CardTitle>
+                  <CardTitle className="text-2xl">Connect Your Accounts</CardTitle>
                   <CardDescription>
-                    Enter your {selectedPlatformInfo?.name} username
+                    Enter your public usernames so we can fetch your analytics
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -353,40 +340,65 @@ export default function OnboardingPage() {
                     </div>
                   )}
 
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="username">
-                        {selectedPlatformInfo?.name} Username
-                      </Label>
-                      <div className="relative">
-                        {selectedPlatformInfo && (
-                          <selectedPlatformInfo.icon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        )}
-                        <Input
-                          id="username"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          placeholder={selectedPlatformInfo?.placeholder}
-                          className="pl-10"
-                        />
+                  <div className="space-y-6">
+                    {selectedPlatforms.includes("tiktok") && (
+                      <div className="space-y-2">
+                        <Label htmlFor="tiktok-username" className="flex items-center gap-2">
+                          <TikTokIcon className="h-4 w-4" />
+                          TikTok Username
+                        </Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                            @
+                          </span>
+                          <Input
+                            id="tiktok-username"
+                            value={tiktokUsername}
+                            onChange={(e) => setTiktokUsername(e.target.value)}
+                            placeholder="username"
+                            className="pl-8"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Enter your TikTok username or paste your profile URL
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        You can enter @username or paste your profile URL
-                      </p>
-                    </div>
+                    )}
 
-                    <div className="space-y-2">
-                      <Label htmlFor="account-name">
-                        Account Nickname (optional)
-                      </Label>
+                    {selectedPlatforms.includes("instagram") && (
+                      <div className="space-y-2">
+                        <Label htmlFor="instagram-username" className="flex items-center gap-2">
+                          <Instagram className="h-4 w-4" />
+                          Instagram Username
+                        </Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                            @
+                          </span>
+                          <Input
+                            id="instagram-username"
+                            value={instagramUsername}
+                            onChange={(e) => setInstagramUsername(e.target.value)}
+                            placeholder="username"
+                            className="pl-8"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Enter your Instagram username or paste your profile URL
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="space-y-2 pt-4 border-t">
+                      <Label htmlFor="account-name">Account Nickname (optional)</Label>
                       <Input
                         id="account-name"
                         value={accountName}
                         onChange={(e) => setAccountName(e.target.value)}
-                        placeholder={`e.g., My ${selectedTypeInfo?.title} Account`}
+                        placeholder="e.g., My Creator Account"
                       />
                       <p className="text-xs text-muted-foreground">
-                        A friendly name to identify this account
+                        A friendly name to identify this account in the app
                       </p>
                     </div>
                   </div>
@@ -398,11 +410,11 @@ export default function OnboardingPage() {
                     </Button>
                     <Button
                       onClick={goNext}
-                      disabled={!canProceed() || isCreating}
+                      disabled={!canProceedUsernames() || isProcessing}
                       className="bg-primary hover:bg-primary/90"
                     >
-                      Create Account
-                      <ArrowRight className="ml-2 h-4 w-4" />
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Get Started
                     </Button>
                   </div>
                 </CardContent>
@@ -410,23 +422,47 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {/* Creating state */}
-          {step === "creating" && (
+          {/* Fetching/Creating state */}
+          {(step === "fetching" || step === "creating") && (
             <motion.div
-              key="creating"
+              key="processing"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
             >
               <Card>
-                <CardContent className="py-12">
-                  <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                    <h3 className="text-lg font-semibold">
-                      Setting up your account...
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      This will only take a moment
-                    </p>
+                <CardContent className="py-16">
+                  <div className="flex flex-col items-center gap-6">
+                    <div className="relative">
+                      <Loader2 className="h-16 w-16 animate-spin text-primary" />
+                      <Sparkles className="h-6 w-6 absolute -top-1 -right-1 text-yellow-500 animate-pulse" />
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-xl font-semibold mb-2">
+                        {step === "fetching"
+                          ? "Fetching Your Profile Data"
+                          : "Setting Up Your Account"}
+                      </h3>
+                      <p className="text-muted-foreground">{fetchProgress}</p>
+                    </div>
+
+                    {step === "fetching" && (
+                      <div className="flex gap-4 mt-4">
+                        {selectedPlatforms.map((platform) => {
+                          const platformInfo = platforms.find((p) => p.id === platform);
+                          return (
+                            <div
+                              key={platform}
+                              className={cn(
+                                "w-12 h-12 rounded-lg flex items-center justify-center text-white",
+                                platformInfo?.color
+                              )}
+                            >
+                              {platformInfo && <platformInfo.icon className="h-6 w-6" />}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
