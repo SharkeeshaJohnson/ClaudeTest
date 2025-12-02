@@ -98,31 +98,6 @@ Return ONLY the JSON, no markdown or explanations.`;
   }
 }
 
-// Fallback: Generate reasonable estimates based on username patterns
-function generateFallbackData(
-  username: string,
-  platform: "tiktok" | "instagram"
-): TikTokProfile | InstagramProfile {
-  // Generate semi-random but consistent numbers based on username
-  const hash = username.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const baseFollowers = (hash % 50) * 100 + 500; // 500-5400
-
-  if (platform === "tiktok") {
-    return {
-      followers: baseFollowers,
-      totalLikes: baseFollowers * (5 + (hash % 10)), // 5-15x followers
-      totalVideos: 10 + (hash % 40), // 10-50 videos
-      bio: `@${username} on TikTok`,
-    };
-  }
-
-  return {
-    followers: baseFollowers,
-    following: Math.floor(baseFollowers * 0.3) + 100,
-    posts: 20 + (hash % 80), // 20-100 posts
-    bio: `@${username} on Instagram`,
-  };
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -155,7 +130,7 @@ export async function POST(request: NextRequest) {
     if (tiktokUsername) {
       promises.push(
         searchProfileData(tiktokUsername, "tiktok", token).then((data) => {
-          result.tiktok = (data as TikTokProfile | null) || (generateFallbackData(tiktokUsername, "tiktok") as TikTokProfile);
+          result.tiktok = data as TikTokProfile | null;
         })
       );
     }
@@ -163,7 +138,7 @@ export async function POST(request: NextRequest) {
     if (instagramUsername) {
       promises.push(
         searchProfileData(instagramUsername, "instagram", token).then((data) => {
-          result.instagram = (data as InstagramProfile | null) || (generateFallbackData(instagramUsername, "instagram") as InstagramProfile);
+          result.instagram = data as InstagramProfile | null;
         })
       );
     }

@@ -62,7 +62,7 @@ export async function chatCompletion(
       model,
       messages: options.messages.map((m) => ({
         role: m.role,
-        content: m.content,
+        content: [{ type: "text" as const, text: m.content }],
       })),
       stream: false,
     },
@@ -78,7 +78,13 @@ export async function chatCompletion(
   }
 
   const choice = data.choices?.[0];
-  const content = choice?.message?.content || "";
+  const rawContent = choice?.message?.content;
+  // Extract text from content array or use as-is if string
+  const content = Array.isArray(rawContent)
+    ? rawContent.find((p) => p.type === "text")?.text || ""
+    : typeof rawContent === "string"
+      ? rawContent
+      : "";
 
   return {
     content,
@@ -160,8 +166,14 @@ export function usePortalChatWrapper(options: UsePortalChatOptions) {
     onFinish: (response) => {
       if (options.onFinish) {
         const choice = response.choices?.[0];
+        const rawContent = choice?.message?.content;
+        const content = Array.isArray(rawContent)
+          ? rawContent.find((p) => p.type === "text")?.text || ""
+          : typeof rawContent === "string"
+            ? rawContent
+            : "";
         options.onFinish({
-          content: choice?.message?.content || "",
+          content,
           model: response.model || "",
           usage: response.usage
             ? {
@@ -187,7 +199,7 @@ export function usePortalChatWrapper(options: UsePortalChatOptions) {
     return sendMessage({
       messages: messages.map((m) => ({
         role: m.role,
-        content: m.content,
+        content: [{ type: "text" as const, text: m.content }],
       })),
       model,
     });

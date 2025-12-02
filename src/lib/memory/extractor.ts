@@ -39,7 +39,7 @@ export function useMemoryExtractor() {
   const { identityToken } = useIdentityToken();
 
   const { extractMemoriesFromMessage, searchMemories } = useMemory({
-    memoryModel: DEFAULT_MODELS.memory,
+    completionsModel: DEFAULT_MODELS.memory,
     embeddingModel: DEFAULT_MODELS.embedding,
     generateEmbeddings: true,
     baseUrl: "https://ai-portal-dev.zetachain.com",

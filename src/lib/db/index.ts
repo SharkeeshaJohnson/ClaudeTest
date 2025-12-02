@@ -76,11 +76,21 @@ export interface AccountMetric {
 export interface Idea {
   id: string;
   accountId: string;
+  folderId: string | null; // null means "Uncategorized" / root level
   title: string;
   description: string | null;
   priority: number; // 1-5
   status: "new" | "in_progress" | "used" | "archived";
   tags: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface IdeaFolder {
+  id: string;
+  accountId: string;
+  name: string;
+  color: string | null; // Optional color for visual organization
   createdAt: number;
   updatedAt: number;
 }
@@ -167,6 +177,7 @@ class SMCCDatabase extends Dexie {
   videoMetrics!: EntityTable<VideoMetric, "id">;
   accountMetrics!: EntityTable<AccountMetric, "id">;
   ideas!: EntityTable<Idea, "id">;
+  ideaFolders!: EntityTable<IdeaFolder, "id">;
   tasks!: EntityTable<Task, "id">;
   streaks!: EntityTable<Streak, "id">;
   videoNotes!: EntityTable<VideoNote, "id">;
@@ -206,6 +217,22 @@ class SMCCDatabase extends Dexie {
       conversations: "id, accountId, createdAt",
       userSettings: "id",
       accountProfiles: "id, &accountId", // unique index on accountId
+    });
+
+    this.version(3).stores({
+      accounts: "id, name, type, createdAt",
+      videos: "id, accountId, status, scheduledDate, postedDate, createdAt",
+      videoMetrics: "id, videoId, platform, recordedAt",
+      accountMetrics: "id, accountId, platform, recordedAt",
+      ideas: "id, accountId, folderId, status, priority, createdAt",
+      ideaFolders: "id, accountId, createdAt",
+      tasks: "id, accountId, status, type, dueDate, createdAt",
+      streaks: "id, &accountId",
+      videoNotes: "id, &videoId",
+      trendReports: "id, accountId, provider, generatedAt",
+      conversations: "id, accountId, createdAt",
+      userSettings: "id",
+      accountProfiles: "id, &accountId",
     });
   }
 }

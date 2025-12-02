@@ -6,7 +6,6 @@ import { MessageCircle, X, Send, Sparkles, User, Trash2 } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAccountStore } from "@/store/account-store";
 import { cn } from "@/lib/utils";
 import { useJemma, type JemmaMessage } from "@/features/chat/use-jemma";
@@ -23,7 +22,7 @@ function AIChatInner({
   selectedAccountId: string | null;
   accountName: string;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
 
   // Use the Jemma hook with the SDK
@@ -49,8 +48,8 @@ function AIChatInner({
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
@@ -134,7 +133,7 @@ function AIChatInner({
             </div>
 
             {/* Messages */}
-            <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+            <div className="flex-1 overflow-y-auto p-4">
               <div className="space-y-4">
                 {displayMessages.map((message) => (
                   <motion.div
@@ -204,8 +203,10 @@ function AIChatInner({
                     </div>
                   </motion.div>
                 )}
+                {/* Scroll anchor */}
+                <div ref={messagesEndRef} />
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Suggested Questions */}
             {messages.length === 0 && (

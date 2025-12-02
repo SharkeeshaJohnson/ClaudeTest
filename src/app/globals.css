@@ -3,278 +3,371 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================================
+   JEMMA DESIGN SYSTEM - "Editorial Warmth"
+   A sophisticated, warm aesthetic for content creators
+   ============================================================================ */
+
 @theme inline {
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
-  --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-instrument-serif);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  /* Jemma Brand Colors */
-  --color-jemma-primary: #5B4FE9;
-  --color-jemma-primary-hover: #4840C7;
-  --color-jemma-primary-light: #EBE9FD;
-  --color-jemma-header: #3D3227;
 }
 
+/* ============================================================================
+   COLOR PALETTE - Warm Editorial
+   ============================================================================ */
+
 :root {
-  --radius: 0.625rem;
-  --background: #FFFFFF;
-  --foreground: #171717;
+  --radius: 0.75rem;
+
+  /* Warm cream/ivory base */
+  --background: #FFFBF7;
+  --foreground: #1C1917;
+
+  /* Elevated surfaces */
   --card: #FFFFFF;
-  --card-foreground: #171717;
+  --card-foreground: #1C1917;
   --popover: #FFFFFF;
-  --popover-foreground: #171717;
-  --primary: #5B4FE9;
+  --popover-foreground: #1C1917;
+
+  /* Rich Indigo Primary */
+  --primary: #4F46E5;
   --primary-foreground: #FFFFFF;
-  --secondary: #F5F5F5;
-  --secondary-foreground: #171717;
-  --muted: #F5F5F5;
-  --muted-foreground: #737373;
-  --accent: #F5F5F5;
-  --accent-foreground: #171717;
-  --destructive: #EF4444;
-  --border: #E5E5E5;
-  --input: #E5E5E5;
-  --ring: #5B4FE9;
-  --chart-1: #5B4FE9;
+
+  /* Warm neutrals */
+  --secondary: #F5F0EB;
+  --secondary-foreground: #44403C;
+  --muted: #F5F0EB;
+  --muted-foreground: #78716C;
+  --accent: #FEF3E7;
+  --accent-foreground: #1C1917;
+
+  /* Coral energy accent */
+  --destructive: #E11D48;
+  --coral: #F97316;
+  --coral-light: #FED7AA;
+
+  /* Borders & inputs */
+  --border: #E7E0D9;
+  --input: #E7E0D9;
+  --ring: #4F46E5;
+
+  /* Chart colors */
+  --chart-1: #4F46E5;
   --chart-2: #14B8A6;
   --chart-3: #F97316;
-  --chart-4: #3B82F6;
-  --chart-5: #A855F7;
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #171717;
-  --sidebar-primary: #5B4FE9;
+  --chart-4: #8B5CF6;
+  --chart-5: #EC4899;
+
+  /* Sidebar */
+  --sidebar: #FFFBF7;
+  --sidebar-foreground: #1C1917;
+  --sidebar-primary: #4F46E5;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F5F5F5;
-  --sidebar-accent-foreground: #171717;
-  --sidebar-border: #E5E5E5;
-  --sidebar-ring: #5B4FE9;
-  /* Gray scale */
-  --gray-50: #FAFAFA;
-  --gray-100: #F5F5F5;
-  --gray-200: #E5E5E5;
-  --gray-300: #D4D4D4;
-  --gray-400: #A3A3A3;
-  --gray-500: #737373;
-  --gray-600: #525252;
-  --gray-700: #404040;
-  --gray-800: #262626;
-  --gray-900: #171717;
+  --sidebar-accent: #F5F0EB;
+  --sidebar-accent-foreground: #1C1917;
+  --sidebar-border: #E7E0D9;
+  --sidebar-ring: #4F46E5;
 }
 
 .dark {
-  --background: #1A1A1A;
-  --foreground: #FAFAFA;
-  --card: #262626;
-  --card-foreground: #FAFAFA;
-  --popover: #262626;
-  --popover-foreground: #FAFAFA;
-  --primary: #5B4FE9;
-  --primary-foreground: #FFFFFF;
-  --secondary: #404040;
-  --secondary-foreground: #FAFAFA;
-  --muted: #404040;
-  --muted-foreground: #A3A3A3;
-  --accent: #404040;
-  --accent-foreground: #FAFAFA;
-  --destructive: #EF4444;
-  --border: #404040;
-  --input: #404040;
-  --ring: #5B4FE9;
-  --chart-1: #5B4FE9;
-  --chart-2: #14B8A6;
-  --chart-3: #F97316;
-  --chart-4: #3B82F6;
-  --chart-5: #A855F7;
-  --sidebar: #262626;
-  --sidebar-foreground: #FAFAFA;
-  --sidebar-primary: #5B4FE9;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #404040;
-  --sidebar-accent-foreground: #FAFAFA;
-  --sidebar-border: #404040;
-  --sidebar-ring: #5B4FE9;
+  /* Deep warm dark */
+  --background: #0C0A09;
+  --foreground: #FAFAF9;
+
+  --card: #1C1917;
+  --card-foreground: #FAFAF9;
+  --popover: #1C1917;
+  --popover-foreground: #FAFAF9;
+
+  --primary: #818CF8;
+  --primary-foreground: #0C0A09;
+
+  --secondary: #292524;
+  --secondary-foreground: #FAFAF9;
+  --muted: #292524;
+  --muted-foreground: #A8A29E;
+  --accent: #292524;
+  --accent-foreground: #FAFAF9;
+
+  --destructive: #FB7185;
+  --coral: #FB923C;
+  --coral-light: #7C2D12;
+
+  --border: #44403C;
+  --input: #44403C;
+  --ring: #818CF8;
+
+  --chart-1: #818CF8;
+  --chart-2: #2DD4BF;
+  --chart-3: #FB923C;
+  --chart-4: #A78BFA;
+  --chart-5: #F472B6;
+
+  --sidebar: #1C1917;
+  --sidebar-foreground: #FAFAF9;
+  --sidebar-primary: #818CF8;
+  --sidebar-primary-foreground: #0C0A09;
+  --sidebar-accent: #292524;
+  --sidebar-accent-foreground: #FAFAF9;
+  --sidebar-border: #44403C;
+  --sidebar-ring: #818CF8;
 }
+
+/* ============================================================================
+   BASE STYLES
+   ============================================================================ */
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-feature-settings: "ss01", "ss02", "cv01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Selection color */
+  ::selection {
+    background-color: rgba(79, 70, 229, 0.2);
+    color: inherit;
   }
 }
 
-/* Jemma Typography */
-.text-hero {
-  font-family: var(--font-instrument-serif), 'Playfair Display', Georgia, serif;
-  font-size: clamp(2.5rem, 6vw, 4.5rem);
+/* ============================================================================
+   TYPOGRAPHY - Editorial Scale
+   ============================================================================ */
+
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+}
+
+.text-display-xl {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-variation-settings: "opsz" 72;
+}
+
+.text-display-lg {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(2.5rem, 5vw, 4rem);
   font-weight: 400;
-  font-style: italic;
-  line-height: 1.15;
+  line-height: 1.1;
   letter-spacing: -0.025em;
+  font-variation-settings: "opsz" 48;
+}
+
+.text-display-md {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.text-display-sm {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+/* Legacy support - direct styles since these are custom classes */
+.text-hero {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
 }
 
 .text-section {
-  font-family: var(--font-instrument-serif), 'Playfair Display', Georgia, serif;
-  font-size: clamp(2rem, 4vw, 3rem);
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(2.5rem, 5vw, 4rem);
   font-weight: 400;
-  font-style: italic;
-  line-height: 1.15;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
 }
 
 .text-subsection {
-  font-family: var(--font-instrument-serif), 'Playfair Display', Georgia, serif;
-  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
   font-weight: 400;
-  font-style: italic;
   line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
-/* Jemma Buttons */
-.btn-jemma-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
+/* Body text */
+.text-body-lg {
+  font-size: 1.125rem;
+  line-height: 1.7;
+  letter-spacing: -0.01em;
+}
+
+.text-body {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.text-body-sm {
   font-size: 0.875rem;
-  font-weight: 500;
-  line-height: 1;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background-color: #5B4FE9;
-  color: white;
-  border: none;
-  text-decoration: none;
+  line-height: 1.5;
 }
 
-.btn-jemma-primary:hover {
-  background-color: #4840C7;
-  transform: translateY(-1px);
+/* ============================================================================
+   BUTTONS - Refined with Personality
+   ============================================================================ */
+
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-2;
+  @apply px-6 py-3 rounded-xl;
+  @apply text-sm font-medium;
+  @apply bg-primary text-primary-foreground;
+  @apply shadow-lg shadow-primary/25;
+  @apply transition-all duration-300 ease-out;
+  @apply hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5;
+  @apply active:translate-y-0 active:shadow-md;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
 }
 
-.btn-jemma-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  line-height: 1;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background-color: transparent;
-  color: #262626;
-  border: 1px solid #D4D4D4;
-  text-decoration: none;
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-2;
+  @apply px-6 py-3 rounded-xl;
+  @apply text-sm font-medium;
+  @apply bg-secondary text-secondary-foreground;
+  @apply border border-border;
+  @apply transition-all duration-300 ease-out;
+  @apply hover:bg-accent hover:border-primary/20;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
 }
 
-.btn-jemma-secondary:hover {
-  background-color: #F5F5F5;
-  border-color: #A3A3A3;
+.btn-ghost {
+  @apply inline-flex items-center gap-2;
+  @apply px-4 py-2 rounded-lg;
+  @apply text-sm font-medium;
+  @apply text-muted-foreground;
+  @apply transition-all duration-200;
+  @apply hover:text-foreground hover:bg-accent;
 }
 
-.btn-jemma-ghost {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0;
-  font-size: 0.875rem;
-  font-weight: 500;
-  background: transparent;
-  color: #262626;
-  border: none;
-  cursor: pointer;
-  transition: color 0.2s ease;
-  text-decoration: none;
+/* Legacy button support - classes map to same styles */
+
+/* ============================================================================
+   CARDS - Elevated with Warmth
+   ============================================================================ */
+
+.card-elevated {
+  @apply bg-card rounded-2xl;
+  @apply border border-border/50;
+  @apply shadow-sm;
+  @apply transition-all duration-300 ease-out;
 }
 
-.btn-jemma-ghost:hover {
-  color: #5B4FE9;
+.card-elevated:hover {
+  @apply shadow-lg shadow-black/5 -translate-y-1;
+  @apply border-border;
 }
 
-.btn-jemma-ghost::after {
-  content: "→";
-  transition: transform 0.2s ease;
+.card-interactive {
+  @apply bg-card rounded-2xl;
+  @apply border border-border/50;
+  @apply shadow-sm;
+  @apply transition-all duration-300 ease-out;
+  @apply cursor-pointer;
 }
 
-.btn-jemma-ghost:hover::after {
-  transform: translateX(4px);
+.card-interactive:hover {
+  @apply shadow-xl shadow-primary/5 -translate-y-1;
+  @apply border-border;
 }
 
-/* Jemma Cards */
-.card-jemma {
-  background: white;
-  border: 1px solid #E5E5E5;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  transition: all 0.2s ease;
+/* ============================================================================
+   GRAIN TEXTURE OVERLAY
+   ============================================================================ */
+
+.grain {
+  position: relative;
 }
 
-.card-jemma:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transform: translateY(-2px);
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 1;
 }
 
-.card-feature {
-  background: white;
-  border: 1px solid #E5E5E5;
-  border-radius: 1rem;
-  padding: 2rem;
+.dark .grain::before {
+  opacity: 0.05;
 }
 
-/* Jemma Header */
-.header-jemma {
-  background-color: #3D3227;
-  padding: 1rem 1.5rem;
-  position: sticky;
-  top: 0;
-  z-index: 100;
+/* ============================================================================
+   ANIMATIONS - Orchestrated & Fluid
+   ============================================================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-/* Animations */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(24px);
   }
   to {
     opacity: 1;
@@ -282,75 +375,255 @@
   }
 }
 
-.animate-fade-in-up {
-  animation: fadeInUp 0.6s ease-out forwards;
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.animate-stagger > * {
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(2deg); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes blob {
+  0%, 100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+  50% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; }
+}
+
+/* Animation classes */
+.animate-fade-in {
+  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   opacity: 0;
-  animation: fadeInUp 0.6s ease-out forwards;
 }
 
-.animate-stagger > *:nth-child(1) { animation-delay: 0ms; }
-.animate-stagger > *:nth-child(2) { animation-delay: 100ms; }
-.animate-stagger > *:nth-child(3) { animation-delay: 200ms; }
-.animate-stagger > *:nth-child(4) { animation-delay: 300ms; }
-.animate-stagger > *:nth-child(5) { animation-delay: 400ms; }
-.animate-stagger > *:nth-child(6) { animation-delay: 500ms; }
-
-/* Section styles */
-.section-gray {
-  background-color: #FAFAFA;
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
 }
 
-.section-dark {
-  background-color: #1A1A1A;
-  color: white;
+.animate-fade-in-down {
+  animation: fadeInDown 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
 }
 
-/* Container */
+.animate-scale-in {
+  animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+.animate-blob {
+  animation: blob 8s ease-in-out infinite;
+}
+
+/* Staggered animations */
+.stagger > * {
+  opacity: 0;
+  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 80ms; }
+.stagger > *:nth-child(3) { animation-delay: 160ms; }
+.stagger > *:nth-child(4) { animation-delay: 240ms; }
+.stagger > *:nth-child(5) { animation-delay: 320ms; }
+.stagger > *:nth-child(6) { animation-delay: 400ms; }
+.stagger > *:nth-child(7) { animation-delay: 480ms; }
+.stagger > *:nth-child(8) { animation-delay: 560ms; }
+
+/* Delay utilities */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; }
+.delay-700 { animation-delay: 700ms; }
+.delay-800 { animation-delay: 800ms; }
+
+/* ============================================================================
+   DECORATIVE ELEMENTS
+   ============================================================================ */
+
+.blob-gradient {
+  background: linear-gradient(
+    135deg,
+    rgba(79, 70, 229, 0.15) 0%,
+    rgba(249, 115, 22, 0.1) 50%,
+    rgba(236, 72, 153, 0.1) 100%
+  );
+  filter: blur(60px);
+}
+
+.dark .blob-gradient {
+  background: linear-gradient(
+    135deg,
+    rgba(129, 140, 248, 0.2) 0%,
+    rgba(251, 146, 60, 0.15) 50%,
+    rgba(244, 114, 182, 0.15) 100%
+  );
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--primary) 0%, #EC4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-border {
+  position: relative;
+  background: var(--card);
+  border-radius: var(--radius);
+}
+
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--primary), transparent 50%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* ============================================================================
+   LAYOUT UTILITIES
+   ============================================================================ */
+
+.container-page {
+  @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+.container-narrow {
+  @apply w-full max-w-3xl mx-auto px-4 sm:px-6;
+}
+
+/* ============================================================================
+   SCROLLBAR STYLING
+   ============================================================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* ============================================================================
+   FOCUS STATES
+   ============================================================================ */
+
+.focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+}
+
+/* ============================================================================
+   GLASSMORPHISM
+   ============================================================================ */
+
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dark .glass {
+  background: rgba(28, 25, 23, 0.7);
+}
+
+/* ============================================================================
+   LEGACY SUPPORT - Map old classes to new system
+   ============================================================================ */
+
+.card-jemma {
+  @apply bg-card rounded-2xl border border-border/50 shadow-sm p-6;
+  @apply transition-all duration-300 ease-out;
+}
+
+.card-feature {
+  @apply bg-card rounded-2xl border border-border/50 shadow-sm p-8;
+  @apply transition-all duration-300 ease-out;
+}
+
+.header-jemma {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  @apply border-b border-border sticky top-0 z-50 px-6 py-4;
+}
+
+.dark .header-jemma {
+  background: rgba(28, 25, 23, 0.7);
+}
+
 .container-jemma {
-  width: 100%;
-  max-width: 1280px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 1rem;
-  padding-right: 1rem;
+  @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
 }
 
-@media (min-width: 640px) {
-  .container-jemma {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .container-jemma {
-    padding-left: 2rem;
-    padding-right: 2rem;
-  }
-}
-
-/* Account-specific theme colors */
-:root {
-  --ai-journey-primary: #3B82F6;
-  --ai-journey-primary-light: #60A5FA;
-  --ai-journey-primary-dark: #2563EB;
-  --dog-content-primary: #F97316;
-  --dog-content-primary-light: #FB923C;
-  --dog-content-primary-dark: #EA580C;
-}
-
-/* Theme classes for account switching */
-.theme-ai-journey {
-  --theme-primary: var(--ai-journey-primary);
-  --theme-primary-light: var(--ai-journey-primary-light);
-  --theme-primary-dark: var(--ai-journey-primary-dark);
-}
-
-.theme-dog-content {
-  --theme-primary: var(--dog-content-primary);
-  --theme-primary-light: var(--dog-content-primary-light);
-  --theme-primary-dark: var(--dog-content-primary-dark);
-}
+.section-gray { @apply bg-secondary; }
+.section-dark { @apply bg-foreground text-background; }

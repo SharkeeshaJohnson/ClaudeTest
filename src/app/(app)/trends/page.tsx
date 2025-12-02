@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAccountStore } from "@/store/account-store";
 import { toast } from "sonner";
 import { useIdentityToken } from "@privy-io/react-auth";
-import { profileService, accountMetricService } from "@/lib/db/services";
+import { profileService, accountMetricService, ideaService } from "@/lib/db/services";
 import { useMemoryExtractor } from "@/lib/memory";
 import type { AccountProfile, AccountMetric } from "@/lib/db";
 import { AVAILABLE_MODELS } from "@/lib/portal/config";
@@ -214,6 +214,13 @@ export default function TrendsPage() {
   const [analysis, setAnalysis] = useState<TrendAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState<{
+    current: number;
+    total: number;
+    currentModel: string;
+    status: string;
+  } | null>(null);
+  const [isSavingToIdeas, setIsSavingToIdeas] = useState(false);
 
   // Load profile and metrics
   useEffect(() => {
@@ -335,63 +342,102 @@ Return a JSON object with exactly this structure (no markdown, just raw JSON):
 Return ONLY the JSON object, no explanations or markdown.`;
   };
 
-  // Helper to call a single model with streaming
-  const callModel = async (model: string, prompt: string): Promise<string> => {
+  // Helper to call a single model with streaming and retry
+  const callModel = async (model: string, prompt: string, retries = 2): Promise<string> => {
     console.log(`[Trends] Calling model: ${model}`);
 
-    const response = await fetch(
-      "https://ai-portal-dev.zetachain.com/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${identityToken}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: "user", content: prompt }],
-          stream: true,
-        }),
-      }
-    );
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const response = await fetch(
+          "https://ai-portal-dev.zetachain.com/api/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${identityToken}`,
+            },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: "user", content: prompt }],
+              stream: true,
+            }),
+          }
+        );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Trends] API error for ${model}:`, response.status, errorText);
-      throw new Error(`API error: ${response.status}`);
-    }
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[Trends] API error for ${model}:`, response.status, errorText);
+          if (attempt < retries) {
+            console.log(`[Trends] Retrying ${model}... (attempt ${attempt + 2})`);
+            await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+            continue;
+          }
+          throw new Error(`API error: ${response.status}`);
+        }
 
-    // Handle streaming response
-    const reader = response.body?.getReader();
-    const decoder = new TextDecoder();
-    let content = "";
+        // Handle streaming response
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let content = "";
+        let buffer = ""; // Buffer for incomplete lines
 
-    if (reader) {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
+            // Use stream: true to handle multi-byte chars across chunks
+            const chunk = decoder.decode(value, { stream: true });
+            buffer += chunk;
 
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            if (data === "[DONE]") continue;
-            try {
-              const parsed = JSON.parse(data);
-              const delta = parsed.choices?.[0]?.delta?.content || "";
-              content += delta;
-            } catch {
-              // Skip invalid JSON
+            // Process complete lines only
+            const lines = buffer.split("\n");
+            // Keep the last potentially incomplete line in buffer
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              const trimmedLine = line.trim();
+              if (trimmedLine.startsWith("data: ")) {
+                const data = trimmedLine.slice(6);
+                if (data === "[DONE]") continue;
+                try {
+                  const parsed = JSON.parse(data);
+                  const delta = parsed.choices?.[0]?.delta?.content || "";
+                  content += delta;
+                } catch {
+                  // Skip invalid JSON chunks
+                }
+              }
+            }
+          }
+
+          // Process any remaining data in buffer
+          if (buffer.trim().startsWith("data: ")) {
+            const data = buffer.trim().slice(6);
+            if (data !== "[DONE]") {
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta?.content || "";
+                content += delta;
+              } catch {
+                // Skip invalid JSON
+              }
             }
           }
         }
+
+        console.log(`[Trends] Response from ${model}:`, content.substring(0, 200));
+        return content;
+      } catch (error) {
+        if (attempt < retries) {
+          console.log(`[Trends] Network error for ${model}, retrying... (attempt ${attempt + 2})`);
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
+        throw error;
       }
     }
-
-    console.log(`[Trends] Response from ${model}:`, content.substring(0, 200));
-    return content;
+    throw new Error("Max retries exceeded");
   };
 
   // Generate trend analysis using multiple LLMs sequentially
@@ -408,6 +454,7 @@ Return ONLY the JSON object, no explanations or markdown.`;
 
     setIsAnalyzing(true);
     setAnalysisError(null);
+    setAnalysisProgress(null);
 
     // Pick 4 models for analysis (excluding embedding model)
     const modelIds = Object.keys(AVAILABLE_MODELS).filter(
@@ -422,13 +469,35 @@ Return ONLY the JSON object, no explanations or markdown.`;
       // Step 1: Call each model sequentially and collect raw responses
       const modelResponses: { model: string; content: string }[] = [];
 
-      for (const model of selectedModels) {
+      for (let i = 0; i < selectedModels.length; i++) {
+        const model = selectedModels[i];
+        const modelName = AVAILABLE_MODELS[model]?.name || model;
+
+        setAnalysisProgress({
+          current: i + 1,
+          total: selectedModels.length,
+          currentModel: modelName,
+          status: "Querying model...",
+        });
+
         try {
-          toast.info(`Analyzing with ${AVAILABLE_MODELS[model]?.name || model}...`);
           const content = await callModel(model, prompt);
           modelResponses.push({ model, content });
+
+          setAnalysisProgress({
+            current: i + 1,
+            total: selectedModels.length,
+            currentModel: modelName,
+            status: "Response received",
+          });
         } catch (error) {
           console.error(`[Trends] Model ${model} failed:`, error);
+          setAnalysisProgress({
+            current: i + 1,
+            total: selectedModels.length,
+            currentModel: modelName,
+            status: "Failed, continuing...",
+          });
           // Continue with other models
         }
       }
@@ -439,6 +508,13 @@ Return ONLY the JSON object, no explanations or markdown.`;
 
       console.log(`[Trends] Got ${modelResponses.length} responses`);
 
+      setAnalysisProgress({
+        current: selectedModels.length,
+        total: selectedModels.length,
+        currentModel: "Processing",
+        status: "Parsing responses...",
+      });
+
       // Step 2: Parse JSON from each response
       const parsedResults: TrendAnalysis[] = [];
 
@@ -447,27 +523,68 @@ Return ONLY the JSON object, no explanations or markdown.`;
           // Try multiple JSON extraction approaches
           let jsonMatch = content.match(/```json\s*([\s\S]*?)```/);
           if (jsonMatch) {
-            parsedResults.push(JSON.parse(jsonMatch[1].trim()));
-            continue;
+            const parsed = JSON.parse(jsonMatch[1].trim());
+            if (parsed.summary || parsed.keyInsights) {
+              parsedResults.push(parsed);
+              continue;
+            }
           }
 
           jsonMatch = content.match(/```\s*([\s\S]*?)```/);
           if (jsonMatch) {
             try {
-              parsedResults.push(JSON.parse(jsonMatch[1].trim()));
-              continue;
+              const parsed = JSON.parse(jsonMatch[1].trim());
+              if (parsed.summary || parsed.keyInsights) {
+                parsedResults.push(parsed);
+                continue;
+              }
             } catch {
               // Not valid JSON
             }
           }
 
-          jsonMatch = content.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            parsedResults.push(JSON.parse(jsonMatch[0]));
-            continue;
+          // Try to find JSON object - be more careful with nested braces
+          const jsonStart = content.indexOf('{');
+          if (jsonStart !== -1) {
+            // Find matching closing brace
+            let braceCount = 0;
+            let jsonEnd = -1;
+            for (let i = jsonStart; i < content.length; i++) {
+              if (content[i] === '{') braceCount++;
+              if (content[i] === '}') braceCount--;
+              if (braceCount === 0) {
+                jsonEnd = i + 1;
+                break;
+              }
+            }
+            if (jsonEnd !== -1) {
+              const jsonStr = content.substring(jsonStart, jsonEnd);
+              try {
+                const parsed = JSON.parse(jsonStr);
+                if (parsed.summary || parsed.keyInsights) {
+                  parsedResults.push(parsed);
+                  continue;
+                }
+              } catch {
+                // Try cleaning up common issues
+                const cleaned = jsonStr
+                  .replace(/,\s*}/g, '}')  // Remove trailing commas
+                  .replace(/,\s*]/g, ']')  // Remove trailing commas in arrays
+                  .replace(/[\x00-\x1F\x7F]/g, ' '); // Remove control characters
+                try {
+                  const parsed = JSON.parse(cleaned);
+                  if (parsed.summary || parsed.keyInsights) {
+                    parsedResults.push(parsed);
+                    continue;
+                  }
+                } catch {
+                  // Still failed
+                }
+              }
+            }
           }
 
-          console.error(`[Trends] No JSON found in ${model} response`);
+          console.error(`[Trends] No valid JSON found in ${model} response`);
         } catch (error) {
           console.error(`[Trends] Failed to parse ${model} response:`, error);
         }
@@ -475,7 +592,12 @@ Return ONLY the JSON object, no explanations or markdown.`;
 
       if (parsedResults.length === 0) {
         // If no JSON could be parsed, use a summarizer model to create analysis
-        toast.info("Creating summary from raw responses...");
+        setAnalysisProgress({
+          current: selectedModels.length,
+          total: selectedModels.length,
+          currentModel: "GPT-4o Mini",
+          status: "Creating summary from raw responses...",
+        });
 
         const summaryPrompt = `Based on the following trend analysis responses, create a unified summary.
 
@@ -504,6 +626,13 @@ Return ONLY the JSON.`;
       if (parsedResults.length === 0) {
         throw new Error("Could not generate analysis from any model");
       }
+
+      setAnalysisProgress({
+        current: selectedModels.length,
+        total: selectedModels.length,
+        currentModel: "Finalizing",
+        status: "Merging insights...",
+      });
 
       // Step 3: Merge results from all successful parses
       const mergedAnalysis: TrendAnalysis = {
@@ -544,6 +673,51 @@ Return ONLY the JSON.`;
       toast.error(message);
     } finally {
       setIsAnalyzing(false);
+      setAnalysisProgress(null);
+    }
+  };
+
+  // Save analysis to Ideas
+  const saveToIdeas = async () => {
+    if (!analysis || !selectedAccountId) return;
+
+    setIsSavingToIdeas(true);
+    try {
+      // Create a formatted description from the analysis
+      const description = [
+        `**Summary:** ${analysis.summary}`,
+        "",
+        `**Key Insights:**`,
+        ...analysis.keyInsights.map((i, idx) => `${idx + 1}. ${i}`),
+        "",
+        `**Content Angles:**`,
+        ...analysis.contentAngles.map((a) => `• ${a}`),
+        "",
+        `**Action Items:**`,
+        ...analysis.actionItems.map((a) => `• ${a}`),
+      ].join("\n");
+
+      // Create tags from recommended topics and hashtags
+      const tags = [
+        "trend-analysis",
+        ...analysis.recommendedTopics.slice(0, 3),
+        ...analysis.recommendedHashtags.slice(0, 3),
+      ];
+
+      await ideaService.create({
+        accountId: selectedAccountId,
+        title: `Trend Analysis - ${new Date().toLocaleDateString()}`,
+        description,
+        priority: 4, // High priority since it's an AI-generated insight
+        tags,
+      });
+
+      toast.success("Analysis saved to Ideas!");
+    } catch (error) {
+      console.error("Failed to save to ideas:", error);
+      toast.error("Failed to save to Ideas");
+    } finally {
+      setIsSavingToIdeas(false);
     }
   };
 
@@ -676,17 +850,41 @@ Return ONLY the JSON.`;
           </p>
         </CardHeader>
         <CardContent>
-          {isAnalyzing && (
-            <div className="flex flex-col items-center justify-center py-12">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              >
-                <RefreshCw className="h-8 w-8 text-muted-foreground" />
-              </motion.div>
-              <p className="mt-4 text-muted-foreground">
-                Analyzing trends across multiple AI models...
-              </p>
+          {isAnalyzing && analysisProgress && (
+            <div className="py-8 space-y-4">
+              {/* Progress bar */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Step {analysisProgress.current} of {analysisProgress.total}
+                  </span>
+                  <span className="font-medium">
+                    {Math.round((analysisProgress.current / analysisProgress.total) * 100)}%
+                  </span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-primary"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(analysisProgress.current / analysisProgress.total) * 100}%` }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </div>
+              </div>
+
+              {/* Current status */}
+              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                >
+                  <RefreshCw className="h-4 w-4 text-primary" />
+                </motion.div>
+                <div className="flex-1">
+                  <p className="font-medium text-sm">{analysisProgress.currentModel}</p>
+                  <p className="text-xs text-muted-foreground">{analysisProgress.status}</p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -838,15 +1036,32 @@ Return ONLY the JSON.`;
                 </ul>
               </div>
 
-              {/* Regenerate */}
-              <div className="flex justify-center pt-4 border-t">
+              {/* Actions */}
+              <div className="flex justify-center gap-3 pt-4 border-t">
                 <Button
                   variant="outline"
                   onClick={generateAnalysis}
                   className="gap-2"
                 >
                   <RefreshCw className="h-4 w-4" />
-                  Regenerate Analysis
+                  Regenerate
+                </Button>
+                <Button
+                  onClick={saveToIdeas}
+                  disabled={isSavingToIdeas}
+                  className="gap-2"
+                >
+                  {isSavingToIdeas ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </motion.div>
+                  ) : (
+                    <Lightbulb className="h-4 w-4" />
+                  )}
+                  {isSavingToIdeas ? "Saving..." : "Save to Ideas"}
                 </Button>
               </div>
             </motion.div>

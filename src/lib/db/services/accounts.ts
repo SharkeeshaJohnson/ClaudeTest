@@ -1,4 +1,4 @@
-import { db, generateId, now, type Account, type Streak } from "../index";
+import { db, generateId, now, type Account } from "../index";
 
 // ============================================================================
 // Account Service
@@ -38,12 +38,11 @@ export const accountService = {
   },
 
   /**
-   * Get account with related data (videos, streak, latest metrics)
+   * Get account with related data (videos, latest metrics)
    */
   async getWithRelations(id: string): Promise<{
     account: Account;
     videos: Awaited<ReturnType<typeof import("./videos").videoService.getByAccountId>>;
-    streak: Streak | undefined;
     latestMetrics: Awaited<ReturnType<typeof import("./metrics").accountMetricService.getLatestByAccountId>>;
   } | null> {
     const account = await db.accounts.get(id);
@@ -51,19 +50,17 @@ export const accountService = {
 
     const { videoService } = await import("./videos");
     const { accountMetricService } = await import("./metrics");
-    const { streakService } = await import("./streaks");
 
-    const [videos, streak, latestMetrics] = await Promise.all([
+    const [videos, latestMetrics] = await Promise.all([
       videoService.getByAccountId(id, { limit: 10 }),
-      streakService.getByAccountId(id),
       accountMetricService.getLatestByAccountId(id),
     ]);
 
-    return { account, videos, streak, latestMetrics };
+    return { account, videos, latestMetrics };
   },
 
   /**
-   * Create a new account with an initialized streak
+   * Create a new account
    */
   async create(input: CreateAccountInput): Promise<Account> {
     const id = generateId();
@@ -79,21 +76,7 @@ export const accountService = {
       createdAt: timestamp,
     };
 
-    // Create account and streak in a transaction
-    await db.transaction("rw", [db.accounts, db.streaks], async () => {
-      await db.accounts.add(account);
-
-      // Initialize streak for the account
-      const streak: Streak = {
-        id: generateId(),
-        accountId: id,
-        currentStreak: 0,
-        longestStreak: 0,
-        lastActivityDate: null,
-        totalXP: 0,
-      };
-      await db.streaks.add(streak);
-    });
+    await db.accounts.add(account);
 
     return account;
   },

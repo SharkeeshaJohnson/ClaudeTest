@@ -2,7 +2,6 @@ import { db, type Account } from "../index";
 import { videoService } from "./videos";
 import { accountMetricService } from "./metrics";
 import { ideaService } from "./ideas";
-import { streakService } from "./streaks";
 
 // ============================================================================
 // Export Service
@@ -57,12 +56,6 @@ export interface ExportData {
     status: string;
     tags: string[];
   }>;
-  streak: {
-    currentStreak: number;
-    longestStreak: number;
-    totalXP: number;
-    lastActivityDate: number | null;
-  };
 }
 
 export const exportService = {
@@ -73,11 +66,10 @@ export const exportService = {
     const account = await db.accounts.get(accountId);
     if (!account) return null;
 
-    const [videos, metricsSummary, ideas, streak] = await Promise.all([
+    const [videos, metricsSummary, ideas] = await Promise.all([
       videoService.getByAccountId(accountId),
       accountMetricService.getMetricsSummary(accountId),
       ideaService.getByAccountId(accountId),
-      streakService.getByAccountId(accountId),
     ]);
 
     return {
@@ -123,12 +115,6 @@ export const exportService = {
         status: i.status,
         tags: i.tags,
       })),
-      streak: {
-        currentStreak: streak.currentStreak,
-        longestStreak: streak.longestStreak,
-        totalXP: streak.totalXP,
-        lastActivityDate: streak.lastActivityDate,
-      },
     };
   },
 

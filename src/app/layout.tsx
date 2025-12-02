@@ -1,27 +1,25 @@
 import type { Metadata } from "next";
-import { Inter, Instrument_Serif, Geist_Mono } from "next/font/google";
+import { DM_Sans, Fraunces, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PrivyAuthProvider } from "@/components/privy-provider";
 import { DataProvider } from "@/components/providers/data-provider";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+const dmSans = DM_Sans({
+  variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",
 });
 
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument-serif",
+const fraunces = Fraunces({
+  variable: "--font-display",
   subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
   display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
 });
 
@@ -38,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${instrumentSerif.variable} ${geistMono.variable} antialiased`}
+        className={`${dmSans.variable} ${fraunces.variable} ${jetbrainsMono.variable} antialiased`}
       >
         <PrivyAuthProvider>
           <DataProvider>

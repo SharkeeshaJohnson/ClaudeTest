@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useAccountStore } from "@/store/account-store";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { taskService, videoMetricService, streakService, videoService } from "@/lib/db/services";
+import { taskService, videoMetricService, videoService } from "@/lib/db/services";
 import type { Task } from "@/lib/db";
 
 interface OverdueTasksModalProps {
@@ -96,9 +96,6 @@ export function OverdueTasksModal({ onAllCompleted }: OverdueTasksModalProps) {
 
       // Mark task as completed
       await taskService.complete(currentTask.id);
-
-      // Award XP for updating metrics
-      await streakService.recordActivity(selectedAccountId, "metrics");
 
       toast.success("Metrics updated successfully!");
 

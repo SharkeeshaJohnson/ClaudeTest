@@ -6,6 +6,7 @@ import { db, generateId, now, type Idea } from "../index";
 
 export interface CreateIdeaInput {
   accountId: string;
+  folderId?: string | null;
   title: string;
   description?: string | null;
   priority?: number;
@@ -15,6 +16,7 @@ export interface CreateIdeaInput {
 export interface UpdateIdeaInput {
   title?: string;
   description?: string | null;
+  folderId?: string | null;
   priority?: number;
   status?: Idea["status"];
   tags?: string[];
@@ -77,6 +79,7 @@ export const ideaService = {
     const idea: Idea = {
       id: generateId(),
       accountId: input.accountId,
+      folderId: input.folderId ?? null,
       title: input.title,
       description: input.description ?? null,
       priority: input.priority ?? 3,
@@ -101,6 +104,7 @@ export const ideaService = {
 
     if (input.title !== undefined) updates.title = input.title;
     if (input.description !== undefined) updates.description = input.description;
+    if (input.folderId !== undefined) updates.folderId = input.folderId;
     if (input.priority !== undefined) updates.priority = input.priority;
     if (input.status !== undefined) updates.status = input.status;
     if (input.tags !== undefined) updates.tags = input.tags;

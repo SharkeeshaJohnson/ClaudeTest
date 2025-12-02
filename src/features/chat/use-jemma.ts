@@ -30,7 +30,9 @@ IMPORTANT GUIDELINES:
 - Give numbered action items when providing recommendations
 - Use their account data to personalize every response
 - If you notice trends in their performance, highlight them
-- Suggest content ideas that align with what's already working for them`;
+- Suggest content ideas that align with what's already working for them
+- If no metrics are available, tell the user they can refresh their profile data from the dashboard
+- If there's no video performance data tracked yet, be honest about it and don't make up specific numbers`;
 
 // ============================================================================
 // Types
@@ -93,13 +95,11 @@ async function buildJemmaContext(accountId?: string): Promise<JemmaContext> {
   const { videoService } = await import("@/lib/db/services/videos");
   const { accountMetricService } = await import("@/lib/db/services/metrics");
   const { ideaService } = await import("@/lib/db/services/ideas");
-  const { streakService } = await import("@/lib/db/services/streaks");
 
-  const [account, videos, ideas, streak] = await Promise.all([
+  const [account, videos, ideas] = await Promise.all([
     accountService.getById(accountId),
     videoService.getByAccountId(accountId, { limit: 20 }),
     ideaService.getByAccountId(accountId),
-    streakService.getByAccountId(accountId),
   ]);
 
   if (!account) {
@@ -114,18 +114,26 @@ async function buildJemmaContext(accountId?: string): Promise<JemmaContext> {
     };
   }
 
+  // Get latest account metrics from the database
+  const latestMetrics = await accountMetricService.getLatestByAccountId(accountId);
+
   // Build account data
   const accountData = JSON.stringify({
     name: account.name,
     platforms: account.platforms,
     tiktokUsername: account.tiktokUsername,
     instagramUsername: account.instagramUsername,
-    initialMetrics: account.initialMetrics,
-    streak: {
-      current: streak.currentStreak,
-      longest: streak.longestStreak,
-      totalXP: streak.totalXP,
-    },
+    currentMetrics: latestMetrics
+      ? {
+          platform: latestMetrics.platform,
+          followers: latestMetrics.followers,
+          totalLikes: latestMetrics.totalLikes,
+          recordedAt: new Date(latestMetrics.recordedAt).toISOString(),
+        }
+      : null,
+    metricsNote: latestMetrics
+      ? "These are the most recent metrics recorded for this account."
+      : "No metrics have been recorded yet. The user should refresh their profile data from the dashboard.",
   });
 
   // Build video data
@@ -246,7 +254,8 @@ export function useJemma(options: UseJemmaOptions = {}): UseJemmaReturn {
       setStreamingContent((prev) => prev + chunk);
     },
     onFinish: (response) => {
-      const content = response.choices?.[0]?.message?.content || streamingContent;
+      const rawContent = response.choices?.[0]?.message?.content;
+      const content = typeof rawContent === "string" ? rawContent : streamingContent;
       const assistantMessage: JemmaMessage = {
         id: `msg-${++messageIdRef.current}`,
         role: "assistant",
@@ -284,10 +293,13 @@ export function useJemma(options: UseJemmaOptions = {}): UseJemmaReturn {
 
       // Build messages array with system prompt
       const systemPrompt = buildSystemPrompt(contextRef.current);
+
+      // Format messages for SDK (content must be array of content parts)
+      const formatContent = (text: string) => [{ type: "text" as const, text }];
       const chatMessages = [
-        { role: "system" as const, content: systemPrompt },
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-        { role: "user" as const, content },
+        { role: "system" as const, content: formatContent(systemPrompt) },
+        ...messages.map((m) => ({ role: m.role, content: formatContent(m.content) })),
+        { role: "user" as const, content: formatContent(content) },
       ];
 
       // Send to Portal API
