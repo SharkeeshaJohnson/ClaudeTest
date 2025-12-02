@@ -2,13 +2,14 @@
 
 import { useState, useRef, useEffect, FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, X, Send, Sparkles, User, Trash2 } from "lucide-react";
+import { MessageCircle, X, Send, Sparkles, User, Trash2, Bookmark, Check } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAccountStore } from "@/store/account-store";
 import { cn } from "@/lib/utils";
 import { useJemma, type JemmaMessage } from "@/features/chat/use-jemma";
+import { ideaService } from "@/lib/db/services";
 
 // Inner component that uses the hook (only rendered when authenticated)
 function AIChatInner({
@@ -24,6 +25,7 @@ function AIChatInner({
 }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
+  const [savedMessageIds, setSavedMessageIds] = useState<Set<string>>(new Set());
 
   // Use the Jemma hook with the SDK
   const {
@@ -55,6 +57,31 @@ function AIChatInner({
 
   const clearChat = () => {
     clearMessages();
+    setSavedMessageIds(new Set());
+  };
+
+  const saveToIdeas = async (message: JemmaMessage) => {
+    if (!selectedAccountId) return;
+
+    try {
+      // Create a title from the first line or first ~50 characters
+      const firstLine = message.content.split("\n")[0];
+      const title = firstLine.length > 60
+        ? firstLine.substring(0, 57) + "..."
+        : firstLine;
+
+      await ideaService.create({
+        accountId: selectedAccountId,
+        title: `Jemma: ${title}`,
+        description: message.content,
+        tags: ["jemma", "ai-suggestion"],
+        priority: 3,
+      });
+
+      setSavedMessageIds((prev) => new Set([...prev, message.id]));
+    } catch (error) {
+      console.error("Failed to save to ideas:", error);
+    }
   };
 
   const suggestedQuestions = [
@@ -155,17 +182,44 @@ function AIChatInner({
                         <Sparkles className="h-3 w-3 text-white" />
                       </div>
                     )}
-                    <div
-                      className={cn(
-                        "rounded-lg p-3 max-w-[85%]",
-                        message.role === "user"
-                          ? "bg-primary text-white"
-                          : "bg-muted"
+                    <div className="flex flex-col gap-1 max-w-[85%]">
+                      <div
+                        className={cn(
+                          "rounded-lg p-3",
+                          message.role === "user"
+                            ? "bg-primary text-white"
+                            : "bg-muted"
+                        )}
+                      >
+                        <p className="text-sm whitespace-pre-wrap">
+                          {message.content}
+                        </p>
+                      </div>
+                      {/* Save to Ideas button for assistant messages (not welcome) */}
+                      {message.role === "assistant" && message.id !== "welcome" && (
+                        <button
+                          onClick={() => saveToIdeas(message)}
+                          disabled={savedMessageIds.has(message.id)}
+                          className={cn(
+                            "self-start flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors",
+                            savedMessageIds.has(message.id)
+                              ? "text-emerald-500 bg-emerald-500/10"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          )}
+                        >
+                          {savedMessageIds.has(message.id) ? (
+                            <>
+                              <Check className="h-3 w-3" />
+                              Saved to Ideas
+                            </>
+                          ) : (
+                            <>
+                              <Bookmark className="h-3 w-3" />
+                              Save to Ideas
+                            </>
+                          )}
+                        </button>
                       )}
-                    >
-                      <p className="text-sm whitespace-pre-wrap">
-                        {message.content}
-                      </p>
                     </div>
                     {message.role === "user" && (
                       <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">

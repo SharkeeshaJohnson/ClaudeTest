@@ -129,8 +129,8 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-subsection text-foreground">Settings</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
+          <p className="text-muted-foreground mt-1.5 font-normal text-sm">
             Configure Jemma AI and model preferences
           </p>
         </div>

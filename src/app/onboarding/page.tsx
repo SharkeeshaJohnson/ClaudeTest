@@ -18,8 +18,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAccountStore, type SocialPlatform } from "@/store/account-store";
 import { cn } from "@/lib/utils";
-import { useIdentityToken } from "@privy-io/react-auth";
-import type { Account } from "@/lib/db";
 
 // TikTok icon component
 function TikTokIcon({ className }: { className?: string }) {
@@ -47,13 +45,12 @@ const platforms = [
   },
 ];
 
-type Step = "platforms" | "usernames" | "fetching" | "creating";
+type Step = "platforms" | "usernames" | "creating";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const createAccount = useAccountStore((state) => state.createAccount);
   const loadAccounts = useAccountStore((state) => state.loadAccounts);
-  const { identityToken } = useIdentityToken();
 
   const [step, setStep] = useState<Step>("platforms");
   const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>([]);
@@ -63,6 +60,9 @@ export default function OnboardingPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetchProgress, setFetchProgress] = useState<string>("");
+
+  // Manual metrics input
+  const [startingFollowers, setStartingFollowers] = useState("");
 
   // Extract clean username from input
   const extractUsername = (input: string, platform: SocialPlatform): string => {
@@ -89,66 +89,15 @@ export default function OnboardingPage() {
     );
   };
 
-  const fetchProfileData = async (): Promise<Account["initialMetrics"] | undefined> => {
-    if (!identityToken) {
-      throw new Error("Not authenticated");
-    }
-
-    const cleanTiktok = selectedPlatforms.includes("tiktok")
-      ? extractUsername(tiktokUsername, "tiktok")
-      : null;
-    const cleanInstagram = selectedPlatforms.includes("instagram")
-      ? extractUsername(instagramUsername, "instagram")
-      : null;
-
-    setFetchProgress("Looking up your profile data...");
-
-    try {
-      const response = await fetch("/api/profile-lookup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${identityToken}`,
-        },
-        body: JSON.stringify({
-          tiktokUsername: cleanTiktok,
-          instagramUsername: cleanInstagram,
-        }),
-      });
-
-      if (!response.ok) {
-        console.warn("Profile lookup failed, continuing without initial metrics");
-        return undefined;
-      }
-
-      const data = await response.json();
-      setFetchProgress("Profile data retrieved!");
-
-      const initialMetrics: Account["initialMetrics"] = {};
-      if (data.tiktok) initialMetrics.tiktok = data.tiktok;
-      if (data.instagram) initialMetrics.instagram = data.instagram;
-
-      return Object.keys(initialMetrics).length > 0 ? initialMetrics : undefined;
-    } catch (error) {
-      console.warn("Profile lookup error:", error);
-      return undefined;
-    }
-  };
-
   const handleCreateAccount = async () => {
     if (selectedPlatforms.length === 0) return;
 
     setIsProcessing(true);
     setError(null);
-    setStep("fetching");
+    setStep("creating");
+    setFetchProgress("Setting up your account...");
 
     try {
-      // Fetch profile data before creating account
-      const initialMetrics = await fetchProfileData();
-
-      setStep("creating");
-      setFetchProgress("Setting up your account...");
-
       const cleanTiktok = selectedPlatforms.includes("tiktok")
         ? extractUsername(tiktokUsername, "tiktok")
         : null;
@@ -164,12 +113,15 @@ export default function OnboardingPage() {
           .join(" / ") ||
         "My Account";
 
+      // Parse starting followers
+      const followers = startingFollowers ? parseInt(startingFollowers) : 0;
+
       await createAccount({
         name,
         platforms: selectedPlatforms,
         tiktokUsername: cleanTiktok,
         instagramUsername: cleanInstagram,
-        initialMetrics,
+        startingFollowers: followers,
       });
 
       // Reload accounts to get the new one
@@ -401,6 +353,26 @@ export default function OnboardingPage() {
                         A friendly name to identify this account in the app
                       </p>
                     </div>
+
+                    {/* Starting Metrics */}
+                    <div className="space-y-4 pt-4 border-t">
+                      <div>
+                        <h4 className="text-sm font-medium mb-1">Starting Followers (optional)</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Enter your current follower count to track your growth over time
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="starting-followers">Current Followers</Label>
+                        <Input
+                          id="starting-followers"
+                          type="number"
+                          value={startingFollowers}
+                          onChange={(e) => setStartingFollowers(e.target.value)}
+                          placeholder="e.g., 10000"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex justify-between pt-4">
@@ -422,8 +394,8 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {/* Fetching/Creating state */}
-          {(step === "fetching" || step === "creating") && (
+          {/* Creating state */}
+          {step === "creating" && (
             <motion.div
               key="processing"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -438,31 +410,10 @@ export default function OnboardingPage() {
                     </div>
                     <div className="text-center">
                       <h3 className="text-xl font-semibold mb-2">
-                        {step === "fetching"
-                          ? "Fetching Your Profile Data"
-                          : "Setting Up Your Account"}
+                        Setting Up Your Account
                       </h3>
                       <p className="text-muted-foreground">{fetchProgress}</p>
                     </div>
-
-                    {step === "fetching" && (
-                      <div className="flex gap-4 mt-4">
-                        {selectedPlatforms.map((platform) => {
-                          const platformInfo = platforms.find((p) => p.id === platform);
-                          return (
-                            <div
-                              key={platform}
-                              className={cn(
-                                "w-12 h-12 rounded-lg flex items-center justify-center text-white",
-                                platformInfo?.color
-                              )}
-                            >
-                              {platformInfo && <platformInfo.icon className="h-6 w-6" />}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
                 </CardContent>
               </Card>

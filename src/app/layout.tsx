@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
-import { DM_Sans, Fraunces, JetBrains_Mono } from "next/font/google";
+import { Lato, Cormorant_Garamond, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PrivyAuthProvider } from "@/components/privy-provider";
 import { DataProvider } from "@/components/providers/data-provider";
 import "./globals.css";
 
-const dmSans = DM_Sans({
+const lato = Lato({
   variable: "--font-sans",
   subsets: ["latin"],
+  weight: ["300", "400", "700"],
   display: "swap",
 });
 
-const fraunces = Fraunces({
+const cormorant = Cormorant_Garamond({
   variable: "--font-display",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
   display: "swap",
 });
 
@@ -36,14 +38,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${dmSans.variable} ${fraunces.variable} ${jetbrainsMono.variable} antialiased`}
+        className={`${lato.variable} ${cormorant.variable} ${jetbrainsMono.variable} antialiased`}
       >
         <PrivyAuthProvider>
           <DataProvider>
             <ThemeProvider
               attribute="class"
-              defaultTheme="dark"
-              enableSystem
+              defaultTheme="light"
+              forcedTheme="light"
+              enableSystem={false}
               disableTransitionOnChange
             >
               {children}

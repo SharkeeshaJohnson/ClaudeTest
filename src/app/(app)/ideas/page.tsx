@@ -8,7 +8,6 @@ import {
   Search,
   Star,
   MoreVertical,
-  Calendar,
   Archive,
   Trash2,
   Edit,
@@ -76,6 +75,7 @@ export default function IdeasPage() {
   const [folderFilter, setFolderFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingIdea, setEditingIdea] = useState<Idea | null>(null);
+  const [viewingIdea, setViewingIdea] = useState<Idea | null>(null);
 
   // Folder dialog state
   const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false);
@@ -253,8 +253,8 @@ export default function IdeasPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-subsection text-foreground">Idea Bank</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl font-semibold text-foreground">Idea Bank</h1>
+          <p className="text-muted-foreground mt-1.5 font-normal text-sm">
             Store and organize your content ideas
           </p>
         </div>
@@ -275,7 +275,7 @@ export default function IdeasPage() {
               setEditingIdea(null);
               setIsDialogOpen(true);
             }}
-            className="bg-primary hover:bg-primary/90"
+            className="bg-[#BFA588] hover:bg-[#BFA588]/90 text-white"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Idea
@@ -468,7 +468,7 @@ export default function IdeasPage() {
             </p>
             <Button
               onClick={() => setIsDialogOpen(true)}
-              className="bg-primary hover:bg-primary/90"
+              className="bg-[#BFA588] hover:bg-[#BFA588]/90 text-white"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Your First Idea
@@ -486,7 +486,10 @@ export default function IdeasPage() {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <Card className="hover:border-primary/50 transition-colors">
+                <Card
+                  className="hover:border-primary/50 transition-colors cursor-pointer"
+                  onClick={() => setViewingIdea(idea)}
+                >
                   <CardContent className="pt-6">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-1">
@@ -494,7 +497,12 @@ export default function IdeasPage() {
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -525,12 +533,6 @@ export default function IdeasPage() {
                           ))}
                           <DropdownMenuSeparator />
 
-                          <DropdownMenuItem
-                            onClick={() => handleUpdateStatus(idea.id, "in_progress")}
-                          >
-                            <Calendar className="h-4 w-4 mr-2" />
-                            Move to Calendar
-                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleUpdateStatus(idea.id, "archived")}
                           >
@@ -644,6 +646,90 @@ export default function IdeasPage() {
               disabled={!newFolderName.trim()}
             >
               {editingFolder ? "Save" : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Idea Dialog */}
+      <Dialog open={!!viewingIdea} onOpenChange={(open) => !open && setViewingIdea(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader className="pr-8">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <DialogTitle className="text-xl">{viewingIdea?.title}</DialogTitle>
+                {viewingIdea?.folderId && (
+                  <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                    <Folder className="h-3 w-3" />
+                    {getFolderName(viewingIdea.folderId)}
+                  </p>
+                )}
+              </div>
+              <Badge
+                className={cn(
+                  "text-xs text-white shrink-0",
+                  viewingIdea && statusColors[viewingIdea.status]
+                )}
+              >
+                {viewingIdea && statusLabels[viewingIdea.status]}
+              </Badge>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Priority */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Priority:</span>
+              <div className="flex items-center gap-0.5">
+                {viewingIdea && renderStars(viewingIdea.priority)}
+              </div>
+            </div>
+
+            {/* Description */}
+            {viewingIdea?.description && (
+              <div className="space-y-2">
+                <span className="text-sm font-medium">Description</span>
+                <div className="p-4 rounded-lg bg-muted/50 whitespace-pre-wrap text-sm">
+                  {viewingIdea.description}
+                </div>
+              </div>
+            )}
+
+            {/* Tags */}
+            {viewingIdea?.tags && viewingIdea.tags.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-sm font-medium">Tags</span>
+                <div className="flex flex-wrap gap-2">
+                  {viewingIdea.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Dates */}
+            <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
+              <span>Created: {viewingIdea && new Date(viewingIdea.createdAt).toLocaleDateString()}</span>
+              <span>Updated: {viewingIdea && new Date(viewingIdea.updatedAt).toLocaleDateString()}</span>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewingIdea(null)}>
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                if (viewingIdea) {
+                  handleEdit(viewingIdea);
+                  setViewingIdea(null);
+                }
+              }}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
             </Button>
           </DialogFooter>
         </DialogContent>

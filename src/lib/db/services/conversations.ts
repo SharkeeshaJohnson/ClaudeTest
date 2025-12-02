@@ -14,6 +14,7 @@ export interface Message {
 
 export interface CreateConversationInput {
   accountId?: string | null;
+  title?: string | null;
   messages?: Message[];
 }
 
@@ -45,6 +46,7 @@ export const conversationService = {
     const conversation: Conversation = {
       id: generateId(),
       accountId: input.accountId ?? null,
+      title: input.title ?? null,
       messages: input.messages || [],
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -139,5 +141,58 @@ export const conversationService = {
     return conversation.messages
       .slice(-maxMessages)
       .map((m) => ({ role: m.role, content: m.content }));
+  },
+
+  /**
+   * Rename a conversation
+   */
+  async rename(conversationId: string, title: string): Promise<Conversation | null> {
+    const conversation = await db.conversations.get(conversationId);
+    if (!conversation) return null;
+
+    await db.conversations.update(conversationId, {
+      title,
+      updatedAt: now(),
+    });
+
+    return { ...conversation, title, updatedAt: now() };
+  },
+
+  /**
+   * Search conversations by message content
+   */
+  async search(accountId: string, query: string): Promise<Conversation[]> {
+    if (!query.trim()) return [];
+
+    const lowerQuery = query.toLowerCase();
+    const conversations = await db.conversations
+      .where("accountId")
+      .equals(accountId)
+      .toArray();
+
+    // Filter conversations that have messages containing the query
+    return conversations.filter((conversation) =>
+      conversation.messages.some((message) =>
+        message.content.toLowerCase().includes(lowerQuery)
+      )
+    );
+  },
+
+  /**
+   * Get a display title for a conversation
+   * Returns the custom title if set, otherwise generates from first message
+   */
+  getDisplayTitle(conversation: Conversation): string {
+    if (conversation.title) return conversation.title;
+
+    // Find the first user message
+    const firstUserMessage = conversation.messages.find((m) => m.role === "user");
+    if (firstUserMessage) {
+      const content = firstUserMessage.content;
+      // Truncate to 40 characters
+      return content.length > 40 ? content.substring(0, 37) + "..." : content;
+    }
+
+    return "New Chat";
   },
 };

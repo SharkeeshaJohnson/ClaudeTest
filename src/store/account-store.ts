@@ -23,6 +23,7 @@ interface AccountState {
     tiktokUsername?: string | null;
     instagramUsername?: string | null;
     initialMetrics?: Account["initialMetrics"];
+    startingFollowers?: number;
   }) => Promise<Account>;
   updateAccount: (
     id: string,

@@ -12,6 +12,7 @@ export interface CreateAccountInput {
   tiktokUsername?: string | null;
   instagramUsername?: string | null;
   initialMetrics?: Account["initialMetrics"];
+  startingFollowers?: number;
 }
 
 export interface UpdateAccountInput {
@@ -77,6 +78,20 @@ export const accountService = {
     };
 
     await db.accounts.add(account);
+
+    // Create initial AccountMetric records if starting followers provided
+    if (input.startingFollowers && input.startingFollowers > 0) {
+      const { accountMetricService } = await import("./metrics");
+
+      // Create a metric record for each platform
+      for (const platform of input.platforms) {
+        await accountMetricService.create({
+          accountId: id,
+          platform,
+          followers: input.startingFollowers,
+        });
+      }
+    }
 
     return account;
   },

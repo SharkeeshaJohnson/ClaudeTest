@@ -4,7 +4,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Sparkles, TrendingUp, Lightbulb, Zap } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 export default function Home() {
   const { login, authenticated, ready } = usePrivy();
@@ -18,16 +18,13 @@ export default function Home() {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex h-screen items-center justify-center bg-background">
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           className="flex flex-col items-center gap-4"
         >
-          <div className="relative">
-            <div className="h-12 w-12 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-            <Sparkles className="absolute inset-0 m-auto h-5 w-5 text-primary animate-pulse-soft" />
-          </div>
+          <div className="h-8 w-8 rounded-full border border-primary/40 border-t-primary animate-spin" />
         </motion.div>
       </div>
     );
@@ -35,236 +32,65 @@ export default function Home() {
 
   if (authenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex h-screen items-center justify-center bg-background">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="text-muted-foreground"
+          className="text-muted-foreground font-light"
         >
-          Redirecting to dashboard...
+          Redirecting...
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background grain">
-      {/* Decorative blobs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          className="absolute -top-40 -right-40 w-[600px] h-[600px] blob-gradient rounded-full animate-blob"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.5, ease: "easeOut" }}
-        />
-        <motion.div
-          className="absolute -bottom-40 -left-40 w-[500px] h-[500px] blob-gradient rounded-full animate-blob"
-          style={{ animationDelay: "-4s" }}
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.5, delay: 0.3, ease: "easeOut" }}
-        />
-        <motion.div
-          className="absolute top-1/3 left-1/4 w-[300px] h-[300px] blob-gradient rounded-full animate-blob opacity-50"
-          style={{ animationDelay: "-2s" }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 0.5 }}
-          transition={{ duration: 2, delay: 0.5 }}
-        />
-      </div>
+    <div className="h-screen overflow-hidden bg-background flex flex-col items-center justify-center px-8">
+      {/* Main Content - Centered */}
+      <motion.div
+        className="text-center max-w-xl"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+      >
+        {/* Logo */}
+        <div className="mb-2">
+          <svg width="320" height="96" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="mx-auto">
+            <g id="icon-stones" transform="translate(0, -6)">
+              <path d="M10 48C10 48 15 52 28 52C41 52 46 48 46 48C46 48 48 42 28 42C8 42 10 48 10 48Z" fill="#C8B8A6"/>
+              <path d="M14 38C14 38 16 41 27 41C38 41 40 38 40 38C40 38 42 33 27 33C12 33 14 38 14 38Z" fill="#C8B8A6"/>
+              <path d="M20 29C20 29 21 31 27 31C33 31 34 29 34 29C34 29 35 25 27 25C19 25 20 29 20 29Z" fill="#C8B8A6"/>
+            </g>
+            <text x="60" y="36" fill="#3E3E3B" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontSize="32" fontWeight="400" letterSpacing="1.5" dominantBaseline="middle">
+              Jemma
+            </text>
+          </svg>
+        </div>
 
-      {/* Main content */}
-      <div className="relative z-10 flex min-h-screen flex-col">
-        {/* Header */}
-        <motion.header
-          className="flex items-center justify-between px-6 py-5 md:px-12"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+        {/* Description */}
+        <p className="text-sm text-foreground font-normal leading-relaxed mb-10">
+          Jemma understands your social medias to help you grow.
+        </p>
+
+        {/* CTA */}
+        <button
+          onClick={login}
+          className="group inline-flex items-center gap-3 px-10 py-4 rounded-full bg-primary text-primary-foreground text-sm font-semibold tracking-wide hover:bg-[#BFA588] transition-all duration-300"
         >
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/25">
-                <Sparkles className="h-5 w-5 text-white" />
-              </div>
-              <div className="absolute -inset-1 rounded-xl bg-primary/20 blur-md -z-10" />
-            </div>
-            <span className="text-xl font-display font-semibold tracking-tight">Jemma</span>
-          </div>
-          <button
-            onClick={login}
-            className="btn-ghost text-sm"
-          >
-            Sign in
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </motion.header>
+          Chat with Jemma
+          <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+        </button>
+      </motion.div>
 
-        {/* Hero Section */}
-        <main className="flex-1 flex items-center justify-center px-6 py-12 md:px-12">
-          <div className="max-w-4xl mx-auto text-center">
-            {/* Badge */}
-            <motion.div
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-8"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-            >
-              <Zap className="h-4 w-4" />
-              AI-Powered Content Strategy
-            </motion.div>
-
-            {/* Headline */}
-            <motion.h1
-              className="text-display-xl mb-6"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-            >
-              Meet{" "}
-              <span className="relative inline-block">
-                <span className="gradient-text">Jemma</span>
-                <motion.svg
-                  className="absolute -bottom-2 left-0 w-full"
-                  viewBox="0 0 200 12"
-                  fill="none"
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 1 }}
-                  transition={{ duration: 1, delay: 1.2 }}
-                >
-                  <motion.path
-                    d="M2 8C50 2 150 2 198 8"
-                    stroke="url(#underline-gradient)"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    initial={{ pathLength: 0 }}
-                    animate={{ pathLength: 1 }}
-                    transition={{ duration: 0.8, delay: 1.2 }}
-                  />
-                  <defs>
-                    <linearGradient id="underline-gradient" x1="0" y1="0" x2="200" y2="0">
-                      <stop stopColor="#4F46E5" />
-                      <stop offset="1" stopColor="#EC4899" />
-                    </linearGradient>
-                  </defs>
-                </motion.svg>
-              </span>
-              ,<br />
-              Your Content Strategist
-            </motion.h1>
-
-            {/* Subheadline */}
-            <motion.p
-              className="text-body-lg text-muted-foreground max-w-2xl mx-auto mb-10"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
-            >
-              An AI companion that understands your content, analyzes what works,
-              and helps you grow your audience with data-driven insights.
-            </motion.p>
-
-            {/* CTA Buttons */}
-            <motion.div
-              className="flex flex-col sm:flex-row items-center justify-center gap-4"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.7 }}
-            >
-              <button
-                onClick={login}
-                className="btn-primary text-base px-8 py-4 group"
-              >
-                Start Creating
-                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </button>
-              <button className="btn-secondary text-base px-8 py-4">
-                See How It Works
-              </button>
-            </motion.div>
-          </div>
-        </main>
-
-        {/* Features Preview */}
-        <motion.section
-          className="px-6 py-16 md:px-12"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 1 }}
-        >
-          <div className="max-w-6xl mx-auto">
-            <div className="grid md:grid-cols-3 gap-6 stagger">
-              <FeatureCard
-                icon={<TrendingUp className="h-6 w-6" />}
-                title="Trend Analysis"
-                description="Stay ahead with real-time insights on what's trending in your niche"
-                gradient="from-indigo-500 to-purple-500"
-              />
-              <FeatureCard
-                icon={<Sparkles className="h-6 w-6" />}
-                title="AI Content Ideas"
-                description="Get personalized content suggestions based on your audience's preferences"
-                gradient="from-orange-500 to-pink-500"
-              />
-              <FeatureCard
-                icon={<Lightbulb className="h-6 w-6" />}
-                title="Smart Insights"
-                description="Understand what makes your content perform with deep analytics"
-                gradient="from-teal-500 to-cyan-500"
-              />
-            </div>
-          </div>
-        </motion.section>
-
-        {/* Footer */}
-        <motion.footer
-          className="px-6 py-8 md:px-12 border-t border-border/50"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 1.2 }}
-        >
-          <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <Sparkles className="h-4 w-4" />
-              <span>Jemma &copy; 2024</span>
-            </div>
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <a href="#" className="hover:text-foreground transition-colors">About</a>
-              <a href="#" className="hover:text-foreground transition-colors">Privacy</a>
-              <a href="#" className="hover:text-foreground transition-colors">Terms</a>
-            </div>
-          </div>
-        </motion.footer>
-      </div>
+      {/* Footer */}
+      <motion.footer
+        className="absolute bottom-8 text-sm text-muted-foreground/50 font-light"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8, delay: 0.4 }}
+      >
+        Jemma &copy; {new Date().getFullYear()}
+      </motion.footer>
     </div>
-  );
-}
-
-function FeatureCard({
-  icon,
-  title,
-  description,
-  gradient,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  gradient: string;
-}) {
-  return (
-    <motion.div
-      className="group relative p-6 rounded-2xl bg-card border border-border/50 hover:border-border transition-all duration-300 hover:shadow-xl hover:shadow-black/5 hover:-translate-y-1"
-      whileHover={{ scale: 1.02 }}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
-    >
-      <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${gradient} text-white mb-4 shadow-lg`}>
-        {icon}
-      </div>
-      <h3 className="font-display text-xl font-medium mb-2">{title}</h3>
-      <p className="text-muted-foreground text-sm leading-relaxed">{description}</p>
-
-      {/* Hover glow effect */}
-      <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300 -z-10`} />
-    </motion.div>
   );
 }

@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAccountStore } from "@/store/account-store";
+import { useTrendAnalysis } from "@/store/trends-store";
 import { toast } from "sonner";
 import { useIdentityToken } from "@privy-io/react-auth";
 import { profileService, accountMetricService, ideaService } from "@/lib/db/services";
@@ -41,7 +42,7 @@ interface TrendAnalysis {
 }
 
 // ============================================================================
-// Tag Input Component
+// Tag Input Component (for hashtags - splits on space/comma)
 // ============================================================================
 
 function TagInput({
@@ -114,6 +115,85 @@ function TagInput({
 }
 
 // ============================================================================
+// Keywords Input Component (allows full sentences - only splits on Enter)
+// ============================================================================
+
+function KeywordsInput({
+  keywords,
+  onKeywordsChange,
+}: {
+  keywords: string[];
+  onKeywordsChange: (keywords: string[]) => void;
+}) {
+  const [newKeyword, setNewKeyword] = useState("");
+
+  const addKeyword = () => {
+    const trimmed = newKeyword.trim();
+    if (trimmed && !keywords.includes(trimmed)) {
+      onKeywordsChange([...keywords, trimmed]);
+      setNewKeyword("");
+    }
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addKeyword();
+    }
+  };
+
+  const removeKeyword = (index: number) => {
+    onKeywordsChange(keywords.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Existing keywords as removable items */}
+      {keywords.length > 0 && (
+        <div className="space-y-1.5">
+          {keywords.map((keyword, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg group"
+            >
+              <span className="flex-1 text-sm">{keyword}</span>
+              <button
+                type="button"
+                onClick={() => removeKeyword(index)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Input for new keyword */}
+      <div className="flex gap-2">
+        <Input
+          type="text"
+          value={newKeyword}
+          onChange={(e) => setNewKeyword(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Type a keyword or phrase and press Enter..."
+          className="flex-1"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={addKeyword}
+          disabled={!newKeyword.trim()}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // Rules Input Component
 // ============================================================================
 
@@ -151,12 +231,12 @@ function RulesInput({
         {rules.map((rule, index) => (
           <div
             key={index}
-            className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg group"
+            className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg group"
           >
-            <span className="text-muted-foreground text-sm mt-0.5">
+            <span className="text-muted-foreground text-sm">
               {index + 1}.
             </span>
-            <p className="flex-1 text-sm">{rule}</p>
+            <span className="flex-1 text-sm">{rule}</span>
             <button
               type="button"
               onClick={() => removeRule(index)}
@@ -210,16 +290,17 @@ export default function TrendsPage() {
   // Metrics state
   const [metrics, setMetrics] = useState<AccountMetric[]>([]);
 
-  // Analysis state
-  const [analysis, setAnalysis] = useState<TrendAnalysis | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [analysisProgress, setAnalysisProgress] = useState<{
-    current: number;
-    total: number;
-    currentModel: string;
-    status: string;
-  } | null>(null);
+  // Analysis state (persisted in global store)
+  const {
+    analysis,
+    isAnalyzing,
+    progress: analysisProgress,
+    error: analysisError,
+    setAnalysis,
+    setIsAnalyzing,
+    setProgress: setAnalysisProgress,
+    setError: setAnalysisError,
+  } = useTrendAnalysis(selectedAccountId);
   const [isSavingToIdeas, setIsSavingToIdeas] = useState(false);
 
   // Load profile and metrics
@@ -311,35 +392,52 @@ export default function TrendsPage() {
   // Get platforms text
   const platformsText = selectedAccount?.platforms?.join(" and ") || "TikTok/Instagram";
 
-  // Build analysis prompt - simpler format that works better with the API
+  // Build analysis prompt - comprehensive prompt for better LLM responses
   const buildAnalysisPrompt = () => {
-    let context = `Analyze current trends for short-form video content on ${platformsText}.`;
+    // Get latest metrics for context
+    const latestMetric = metrics[metrics.length - 1];
+    const metricsContext = latestMetric
+      ? `Current account metrics: ${latestMetric.followers?.toLocaleString() || 0} followers, ${latestMetric.engagementRate || 0}% engagement rate, ${latestMetric.totalViews?.toLocaleString() || 0} total views.`
+      : "";
 
-    if (hashtags.length > 0) {
-      context += ` Focus on these hashtags: ${hashtags.join(", ")}.`;
-    }
+    const prompt = `You are a senior marketing executive with deep expertise in social media strategy and content creation. You have been tasked to analyze trends and provide strategic insights for a content creator on ${platformsText}.
 
-    if (keywords.length > 0) {
-      context += ` Target keywords: ${keywords.join(", ")}.`;
-    }
+${hashtags.length > 0 ? `**Tracked Hashtags:**
+${hashtags.map(h => `- ${h}`).join("\n")}
 
-    if (rules.length > 0) {
-      context += ` Account context: ${rules.join("; ")}.`;
-    }
+` : ""}${keywords.length > 0 ? `**Target Keywords & Topics:**
+${keywords.map(k => `- ${k}`).join("\n")}
 
-    return `${context}
+` : ""}${rules.length > 0 ? `**Account Rules & Context:**
+${rules.map((r, i) => `${i + 1}. ${r}`).join("\n")}
 
-Return a JSON object with exactly this structure (no markdown, just raw JSON):
+` : ""}${metricsContext ? `**Account Performance:**
+${metricsContext}
+
+` : ""}**Your Task:**
+Run a comprehensive analysis of all trending posts, content, news, and discussions related to each of the hashtags and keywords provided above. Your analysis should:
+
+1. Identify what's currently viral and gaining traction in these niches
+2. Analyze successful content patterns and formats
+3. Discover emerging trends before they peak
+4. Consider the account's specific rules and context for personalized recommendations
+5. Factor in the account's current performance metrics when providing advice
+
+This should NOT be a high-level summary. Provide a THOROUGH, data-driven analysis with specific, actionable insights. Include relevant metrics, statistics, and specific examples where applicable.
+
+Return your analysis as a JSON object with exactly this structure (no markdown, just raw JSON):
 {
-  "summary": "A 2-3 sentence high-level summary of current trends relevant to this account",
-  "keyInsights": ["insight1", "insight2", "insight3", "insight4"],
-  "recommendedTopics": ["topic1", "topic2", "topic3", "topic4", "topic5"],
-  "recommendedHashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5", "#hashtag6"],
-  "contentAngles": ["angle1", "angle2", "angle3", "angle4"],
-  "actionItems": ["action1", "action2", "action3"]
+  "summary": "A detailed 3-4 sentence executive summary of key findings and the current landscape for this creator's niche",
+  "keyInsights": ["Specific insight with data/examples #1", "Specific insight #2", "Specific insight #3", "Specific insight #4", "Specific insight #5", "Specific insight #6"],
+  "recommendedTopics": ["Specific topic idea #1", "Topic #2", "Topic #3", "Topic #4", "Topic #5", "Topic #6", "Topic #7", "Topic #8"],
+  "recommendedHashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5", "#hashtag6", "#hashtag7", "#hashtag8"],
+  "contentAngles": ["Specific creative angle with hook idea #1", "Angle #2", "Angle #3", "Angle #4", "Angle #5"],
+  "actionItems": ["Specific action with timeline #1", "Action #2", "Action #3", "Action #4", "Action #5"]
 }
 
 Return ONLY the JSON object, no explanations or markdown.`;
+
+    return prompt;
   };
 
   // Helper to call a single model with streaming and retry
@@ -726,9 +824,9 @@ Return ONLY the JSON.`;
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-subsection text-foreground">Trend Analysis</h1>
-          <p className="text-muted-foreground mt-1">
-            Configure your profile and get AI-powered trend insights
+          <h1 className="text-2xl font-semibold text-foreground">Trend Analysis</h1>
+          <p className="text-muted-foreground mt-1.5 font-normal text-sm">
+            Configure your profile and discover insights
           </p>
         </div>
       </div>
@@ -765,15 +863,14 @@ Return ONLY the JSON.`;
             <div className="space-y-2">
               <label className="text-sm font-medium flex items-center gap-2">
                 <Lightbulb className="h-4 w-4 text-muted-foreground" />
-                Keywords
+                Keywords & Phrases
               </label>
-              <TagInput
-                tags={keywords}
-                onTagsChange={setKeywords}
-                placeholder="Type keywords and press space..."
+              <KeywordsInput
+                keywords={keywords}
+                onKeywordsChange={setKeywords}
               />
               <p className="text-xs text-muted-foreground">
-                Add keywords that describe your content niche and topics.
+                Add keywords, phrases, or full sentences that describe your niche. Press Enter to add.
               </p>
             </div>
           </CardContent>
@@ -797,12 +894,13 @@ Return ONLY the JSON.`;
         </Card>
       </div>
 
-      {/* Save Button */}
-      <div className="flex justify-end">
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3">
         <Button
           onClick={handleSave}
           disabled={!hasChanges || isSaving}
-          className="gap-2"
+          variant="outline"
+          className="gap-2 min-w-[180px] border-[#C8B8A6] text-[#3E3E3B] hover:bg-[#C8B8A6]/10"
         >
           {isSaving ? (
             <motion.div
@@ -816,37 +914,34 @@ Return ONLY the JSON.`;
           )}
           {isSaving ? "Saving..." : "Save to Memory"}
         </Button>
+        <Button
+          onClick={generateAnalysis}
+          disabled={isAnalyzing}
+          className="gap-2 min-w-[180px] bg-[#BFA588] hover:bg-[#BFA588]/90 text-white"
+        >
+          {isAnalyzing ? (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </motion.div>
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+          {isAnalyzing ? "Analyzing..." : "Generate Analysis"}
+        </Button>
       </div>
 
-      {/* Generate Analysis */}
+      {/* Analysis Results */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              AI Trend Analysis
-            </CardTitle>
-            <Button
-              onClick={generateAnalysis}
-              disabled={isAnalyzing}
-              className="gap-2"
-            >
-              {isAnalyzing ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </motion.div>
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-              {isAnalyzing ? "Analyzing..." : "Generate Analysis"}
-            </Button>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            AI Trend Analysis
+          </CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Generates insights from 4 AI models based on your profile, metrics,
-            and preferences.
+            Insights from 4 AI models based on your profile, metrics, and preferences.
           </p>
         </CardHeader>
         <CardContent>

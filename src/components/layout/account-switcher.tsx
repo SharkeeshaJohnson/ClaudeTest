@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Instagram, User } from "lucide-react";
+import { Instagram, User, ChevronDown, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAccountStore } from "@/store/account-store";
+import { metricsService } from "@/lib/db/services";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // TikTok icon component
 function TikTokIcon({ className }: { className?: string }) {
@@ -18,79 +25,136 @@ function TikTokIcon({ className }: { className?: string }) {
 export function AccountSwitcher() {
   const { accounts, selectedAccountId, selectAccount, loadAccounts, isLoading } =
     useAccountStore();
+  const [followers, setFollowers] = useState<number | null>(null);
 
   // Load accounts from local DB on mount
   useEffect(() => {
     loadAccounts();
   }, [loadAccounts]);
 
+  // Fetch followers when account changes
+  useEffect(() => {
+    async function fetchFollowers() {
+      if (!selectedAccountId) {
+        setFollowers(null);
+        return;
+      }
+
+      try {
+        const account = accounts.find((a) => a.id === selectedAccountId);
+        const platform = account?.platforms?.[0] || "instagram";
+        const metrics = await metricsService.getAccountMetrics(selectedAccountId, { platform });
+        const latestMetric = metrics[metrics.length - 1];
+        setFollowers(latestMetric?.followers || null);
+      } catch (error) {
+        console.error("Failed to fetch followers:", error);
+        setFollowers(null);
+      }
+    }
+
+    fetchFollowers();
+  }, [selectedAccountId, accounts]);
+
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-2">
-        <span className="text-sm text-muted-foreground">Loading accounts...</span>
+      <div className="flex items-center justify-center py-2">
+        <span className="text-xs text-muted-foreground">Loading...</span>
       </div>
     );
   }
 
   if (accounts.length === 0) {
     return (
-      <div className="flex items-center justify-center gap-2 py-2">
-        <span className="text-sm text-muted-foreground">No accounts yet</span>
+      <div className="flex items-center justify-center py-2">
+        <span className="text-xs text-muted-foreground">No accounts</span>
       </div>
     );
   }
 
+  const hasTikTok = selectedAccount?.platforms?.includes("tiktok");
+  const hasInstagram = selectedAccount?.platforms?.includes("instagram");
+
+  // Get display username
+  const displayUsername = selectedAccount?.tiktokUsername
+    ? `@${selectedAccount.tiktokUsername}`
+    : selectedAccount?.instagramUsername
+    ? `@${selectedAccount.instagramUsername}`
+    : selectedAccount?.name || "Account";
+
   return (
     <div className="space-y-2">
-      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-        Active Account
-      </label>
-      <div className="flex gap-2">
-        {accounts.map((account) => {
-          const isSelected = account.id === selectedAccountId;
-          const hasTikTok = account.platforms?.includes("tiktok");
-          const hasInstagram = account.platforms?.includes("instagram");
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <motion.button
+            className={cn(
+              "w-full flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all",
+              "bg-[#C8B8A6]/15 hover:bg-[#C8B8A6]/25 border border-[#C8B8A6]/30",
+              "focus:outline-none focus:ring-2 focus:ring-[#C8B8A6]/30"
+            )}
+            whileTap={{ scale: 0.98 }}
+          >
+            {/* Platform icons */}
+            <div className="flex items-center gap-1 text-muted-foreground">
+              {hasTikTok && <TikTokIcon className="h-4 w-4" />}
+              {hasInstagram && <Instagram className="h-4 w-4" />}
+              {!hasTikTok && !hasInstagram && <User className="h-4 w-4" />}
+            </div>
 
-          return (
-            <motion.button
-              key={account.id}
-              onClick={() => selectAccount(account.id)}
-              className={cn(
-                "flex-1 flex flex-col items-center gap-1.5 rounded-lg p-3 transition-all",
-                "bg-primary hover:bg-primary/90",
-                isSelected ? "ring-2 ring-offset-2 ring-offset-sidebar ring-primary" : "opacity-60"
-              )}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div className="flex items-center gap-1">
-                {hasTikTok && <TikTokIcon className="h-4 w-4 text-white" />}
-                {hasInstagram && <Instagram className="h-4 w-4 text-white" />}
-                {!hasTikTok && !hasInstagram && <User className="h-4 w-4 text-white" />}
-              </div>
-              <span className="text-xs font-medium text-white truncate max-w-full">
-                {account.name}
-              </span>
-            </motion.button>
-          );
-        })}
-      </div>
-      {selectedAccount && (
-        <motion.p
-          key={selectedAccount.id}
-          initial={{ opacity: 0, y: -5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-xs text-muted-foreground text-center mt-2"
-        >
-          {[
-            selectedAccount.tiktokUsername && `@${selectedAccount.tiktokUsername}`,
-            selectedAccount.instagramUsername && `@${selectedAccount.instagramUsername}`,
-          ]
-            .filter(Boolean)
-            .join(" / ") || selectedAccount.name}
-        </motion.p>
+            {/* Username */}
+            <span className="flex-1 text-sm font-medium text-left truncate">
+              {displayUsername}
+            </span>
+
+            {/* Dropdown indicator */}
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          </motion.button>
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent align="start" className="w-56">
+          {accounts.map((account) => {
+            const isSelected = account.id === selectedAccountId;
+            const accHasTikTok = account.platforms?.includes("tiktok");
+            const accHasInstagram = account.platforms?.includes("instagram");
+            const accUsername = account.tiktokUsername
+              ? `@${account.tiktokUsername}`
+              : account.instagramUsername
+              ? `@${account.instagramUsername}`
+              : account.name;
+
+            return (
+              <DropdownMenuItem
+                key={account.id}
+                onClick={() => selectAccount(account.id)}
+                className={cn(
+                  "flex items-center gap-3 cursor-pointer",
+                  isSelected && "bg-primary/10"
+                )}
+              >
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  {accHasTikTok && <TikTokIcon className="h-4 w-4" />}
+                  {accHasInstagram && <Instagram className="h-4 w-4" />}
+                  {!accHasTikTok && !accHasInstagram && <User className="h-4 w-4" />}
+                </div>
+                <span className={cn("flex-1 truncate", isSelected && "font-medium")}>
+                  {accUsername}
+                </span>
+                {isSelected && (
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                )}
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Followers metric */}
+      {followers !== null && (
+        <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground">
+          <Users className="h-3 w-3" />
+          <span>{followers.toLocaleString()} followers</span>
+        </div>
       )}
     </div>
   );

@@ -328,7 +328,7 @@ export default function ContentStudioPage() {
             <Button
               onClick={handleGenerate}
               disabled={isGenerating || !topic.trim()}
-              className="w-full bg-primary hover:bg-primary/90"
+              className="w-full bg-[#BFA588] hover:bg-[#BFA588]/90 text-white"
             >
               {isGenerating ? (
                 <motion.div

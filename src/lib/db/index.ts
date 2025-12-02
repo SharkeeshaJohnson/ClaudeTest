@@ -140,6 +140,7 @@ export interface TrendReport {
 export interface Conversation {
   id: string;
   accountId: string | null;
+  title: string | null; // User-defined title for the conversation
   messages: Array<{
     role: "user" | "assistant" | "system";
     content: string;
